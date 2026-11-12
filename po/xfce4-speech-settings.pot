@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: xfce4-speech-settings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 00:33+0000\n"
+"POT-Creation-Date: 2026-11-12 18:32+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -21,7 +21,7 @@ msgstr ""
 msgid "Speech"
 msgstr ""
 
-#: data/xfce4-speech-settings.desktop.in:4 src/main.c:127
+#: data/xfce4-speech-settings.desktop.in:4
 msgid "Configure text-to-speech"
 msgstr ""
 
@@ -112,173 +112,177 @@ msgstr ""
 msgid "Play a sound"
 msgstr ""
 
-#: src/speech-page.c:88 src/speech-page.c:592
+#: src/speech-page.c:88 src/speech-page.c:608
 msgid "Automatic"
 msgstr ""
 
-#: src/speech-page.c:203 src/speech-page.c:1245
+#: src/speech-page.c:203 src/speech-page.c:1261
 #, c-format
 msgid "Failed to apply the settings: %s"
 msgstr ""
 
-#: src/speech-page.c:380
+#: src/speech-page.c:395
 msgid "Normal"
 msgstr ""
 
-#: src/speech-page.c:421
+#: src/speech-page.c:437
 #, c-format
 msgid "Cannot connect to Speech Dispatcher: %s"
 msgstr ""
 
-#: src/speech-page.c:422
+#: src/speech-page.c:438
 msgid "unknown error"
 msgstr ""
 
 #. TRANSLATORS: a synthesizer without a voice for the language
-#: src/speech-page.c:610
+#: src/speech-page.c:626
 #, c-format
 msgid "%s (no voice for this language)"
 msgstr ""
 
-#: src/speech-page.c:911
+#: src/speech-page.c:927
 msgid "The synthesizer has no voice for this language"
 msgstr ""
 
-#: src/speech-page.c:915
+#: src/speech-page.c:931
 msgid "This synthesizer chooses its voice by the voice type"
 msgstr ""
 
-#: src/speech-page.c:919
+#: src/speech-page.c:935
 msgid "The voice for this language, kept in the synthesizer's settings"
 msgstr ""
 
-#: src/speech-page.c:962
+#: src/speech-page.c:978
 #, c-format
 msgid "Failed to save the voice: %s"
 msgstr ""
 
-#: src/speech-page.c:1318
+#: src/speech-page.c:1334
 msgid "Speech Dispatcher did not accept the text."
 msgstr ""
 
-#: src/speech-page.c:1459
+#: src/speech-page.c:1481
 #, c-format
 msgid "Failed to read the settings: %s"
 msgstr ""
 
-#: src/speech-page.c:1469
+#: src/speech-page.c:1491
 msgid "_Use All"
 msgstr ""
 
-#: src/speech-page.c:1473
+#: src/speech-page.c:1495
 msgid ""
 "Your settings list the synthesizers to load, so synthesizers installed later "
 "are not offered. Use all installed synthesizers?"
 msgstr ""
 
 #. Voice
-#: src/speech-page.c:1493
+#: src/speech-page.c:1515
 msgid "Voice"
 msgstr ""
 
-#: src/speech-page.c:1502
+#: src/speech-page.c:1524
 msgid ""
 "Language code like “en-US” or “ru”. Most applications set the language "
 "themselves."
 msgstr ""
 
-#: src/speech-page.c:1504
+#: src/speech-page.c:1526
 msgid "_Language:"
 msgstr ""
 
-#: src/speech-page.c:1512
+#: src/speech-page.c:1534
 msgid ""
 "The speech synthesizer used when an application does not ask for another "
 "one. Only the ones with a voice for the language are offered."
 msgstr ""
 
-#: src/speech-page.c:1516
+#: src/speech-page.c:1538
 msgid "_Synthesizer:"
 msgstr ""
 
-#: src/speech-page.c:1525
+#: src/speech-page.c:1547
 msgid "_Voice:"
 msgstr ""
 
-#: src/speech-page.c:1532
+#: src/speech-page.c:1554
 msgid "The synthesizer maps these types to its own voices"
 msgstr ""
 
-#: src/speech-page.c:1534
+#: src/speech-page.c:1556
 msgid "Voice _type:"
 msgstr ""
 
-#: src/speech-page.c:1550
-msgid "Slower"
-msgstr ""
-
-#: src/speech-page.c:1550
-msgid "Faster"
-msgstr ""
-
-#: src/speech-page.c:1552
-msgid "_Pitch:"
-msgstr ""
-
-#: src/speech-page.c:1553
-msgid "Lower"
-msgstr ""
-
-#: src/speech-page.c:1553
-msgid "Higher"
-msgstr ""
-
-#: src/speech-page.c:1555
-msgid "_Volume:"
-msgstr ""
-
-#: src/speech-page.c:1556
-msgid "Quieter"
-msgstr ""
-
-#: src/speech-page.c:1556
-msgid "Louder"
-msgstr ""
-
-#: src/speech-page.c:1557
+#: src/speech-page.c:1567
 msgid "_Rate:"
 msgstr ""
 
-#. Reading
-#: src/speech-page.c:1563
-msgid "Reading"
+#: src/speech-page.c:1568
+msgid "Slower"
 msgstr ""
 
-#: src/speech-page.c:1567
-msgid "P_unctuation:"
+#: src/speech-page.c:1568
+msgid "Faster"
+msgstr ""
+
+#: src/speech-page.c:1570
+msgid "_Pitch:"
+msgstr ""
+
+#: src/speech-page.c:1571
+msgid "Lower"
+msgstr ""
+
+#: src/speech-page.c:1571
+msgid "Higher"
+msgstr ""
+
+#: src/speech-page.c:1573
+msgid "_Volume:"
 msgstr ""
 
 #: src/speech-page.c:1574
+msgid "Quieter"
+msgstr ""
+
+#: src/speech-page.c:1574
+msgid "Louder"
+msgstr ""
+
+#. Reading
+#: src/speech-page.c:1577
+msgid "Reading"
+msgstr ""
+
+#: src/speech-page.c:1581
+msgid "P_unctuation:"
+msgstr ""
+
+#: src/speech-page.c:1588
 msgid "_Capital letters:"
 msgstr ""
 
-#: src/speech-page.c:1582
+#: src/speech-page.c:1596
 msgid "_Output:"
 msgstr ""
 
 #. Test
-#: src/speech-page.c:1587
+#: src/speech-page.c:1601
 msgid "Test"
 msgstr ""
 
-#: src/speech-page.c:1594 src/speech-page.c:1596
+#: src/speech-page.c:1608 src/speech-page.c:1610
 msgid "This is how your computer speaks."
 msgstr ""
 
-#: src/speech-page.c:1603
+#: src/speech-page.c:1614
+msgid "Te_xt:"
+msgstr ""
+
+#: src/speech-page.c:1624
 msgid "_Speak"
 msgstr ""
 
-#: src/speech-page.c:1610
+#: src/speech-page.c:1631
 msgid "S_top"
 msgstr ""
