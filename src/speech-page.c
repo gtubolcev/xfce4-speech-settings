@@ -156,6 +156,7 @@ typedef struct
   GtkWidget     *capital_combo;
   GtkWidget     *audio_combo;
   GtkWidget     *test_entry;
+  GtkWidget     *test_grid;
   /* the sentence put into test_entry for a language, while the user keeps it */
   const gchar   *test_text;
 
@@ -1390,6 +1391,33 @@ speech_page_flush (GtkWidget *widget)
 
 
 
+void
+speech_page_add_close (GtkWidget *widget,
+                       GtkWidget *button)
+{
+  SpeechPage *page = g_object_get_data (G_OBJECT (widget), "speech-page");
+  GtkWidget  *hbox;
+
+  g_return_if_fail (page != NULL);
+
+  /* the same row as Speak and Stop, with Close in the place of Stop */
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
+  gtk_widget_set_margin_start (hbox, 12);
+  gtk_size_group_add_widget (right_size_group, hbox);
+  gtk_box_pack_start (GTK_BOX (hbox), gtk_label_new (NULL), TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 0);
+
+  /* at the bottom of a taller window; the gap between frames, not the one
+   * between rows */
+  gtk_widget_set_valign (hbox, GTK_ALIGN_END);
+  gtk_widget_set_vexpand (hbox, TRUE);
+  gtk_widget_set_margin_top (hbox, 12);
+  gtk_grid_attach (GTK_GRID (page->test_grid), hbox, 2, 1, 1, 1);
+}
+
+
+
 static void
 speech_page_bind_choice (SpeechPage   *page,
                          GtkWidget    *combo,
@@ -1600,6 +1628,8 @@ speech_page_new (void)
 
   /* Test */
   grid = speech_page_frame_new (box, _("Test"));
+
+  page->test_grid = grid;
 
   /* the text where the combos are, the buttons below rate, pitch, volume */
   page->test_entry = gtk_entry_new ();

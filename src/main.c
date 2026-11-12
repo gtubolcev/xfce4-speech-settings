@@ -62,12 +62,22 @@ dialog_response (GtkDialog *dialog,
 
 
 
+static void
+close_clicked (GtkButton *button,
+               GtkDialog *dialog)
+{
+  gtk_dialog_response (dialog, GTK_RESPONSE_CLOSE);
+}
+
+
+
 gint
 main (gint    argc,
       gchar **argv)
 {
   GtkWidget *page;
   GtkWidget *dialog;
+  GtkWidget *button;
   GError    *error = NULL;
 
   xfce_textdomain (GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR, "UTF-8");
@@ -118,15 +128,19 @@ main (gint    argc,
     }
 #endif
 
-  dialog = xfce_titled_dialog_new_with_mixed_buttons (_("Speech"), NULL, 0,
-                                                      "window-close-symbolic",
-                                                      _("_Close"),
-                                                      GTK_RESPONSE_CLOSE,
-                                                      NULL);
+  /* no buttons in the action area: the theme gives it a margin of its own,
+   * so Close would not end where the controls above it end */
+  dialog = xfce_titled_dialog_new ();
+  gtk_window_set_title (GTK_WINDOW (dialog), _("Speech"));
   gtk_window_set_icon_name (GTK_WINDOW (dialog), "audio-speakers");
   gtk_window_set_default_size (GTK_WINDOW (dialog), 560, -1);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       page, TRUE, TRUE, 0);
+
+  button = xfce_gtk_button_new_mixed ("window-close-symbolic", _("_Close"));
+  g_signal_connect (button, "clicked", G_CALLBACK (close_clicked), dialog);
+  speech_page_add_close (page, button);
+
   g_signal_connect (dialog, "response", G_CALLBACK (dialog_response), page);
   gtk_widget_show_all (dialog);
 

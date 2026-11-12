@@ -30,6 +30,11 @@ GtkWidget *speech_page_new   (void);
 /* Writes changes that are still waiting for the save timeout. */
 void       speech_page_flush (GtkWidget *page);
 
+/* Puts the Close button of the stand-alone dialog below the test buttons,
+ * so its right edge is that of the controls above. */
+void       speech_page_add_close (GtkWidget *page,
+                                  GtkWidget *button);
+
 G_END_DECLS
 
 #endif /* !__SPEECH_PAGE_H__ */
