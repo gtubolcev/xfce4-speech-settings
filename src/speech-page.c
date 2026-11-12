@@ -333,6 +333,11 @@ speech_page_percent_new (gint value)
 static GtkSizeGroup *label_size_group = NULL;
 /* the combos share one width: the widest one's, not the window's */
 static GtkSizeGroup *combo_size_group = NULL;
+/* the labels of rate, pitch and volume, so their spins line up */
+static GtkSizeGroup *percent_label_size_group = NULL;
+/* the "Label: [spin]" rows and the test buttons: one column right of the
+ * combos */
+static GtkSizeGroup *right_size_group = NULL;
 
 static void
 speech_page_grid_add (GtkWidget   *grid,
@@ -358,7 +363,7 @@ speech_page_grid_add (GtkWidget   *grid,
 
 
 
-/* "Label: [spin]" in columns 2 and 3 of a row, right of the combos; the
+/* "Label: [spin]" in column 2 of a row, right of the combos; the
  * tooltip explains the range, 0 is what the synthesizer does by default,
  * not silence */
 static void
@@ -369,17 +374,23 @@ speech_page_grid_add_percent (GtkWidget   *grid,
                               const gchar *low,
                               const gchar *high)
 {
+  GtkWidget *hbox;
   GtkWidget *label;
   gchar     *tip;
+
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
+  /* a wider gap to the combos than between a label and its widget */
+  gtk_widget_set_margin_start (hbox, 12);
+  gtk_size_group_add_widget (right_size_group, hbox);
+  gtk_grid_attach (GTK_GRID (grid), hbox, 2, row, 1, 1);
 
   label = gtk_label_new_with_mnemonic (text);
   gtk_label_set_xalign (GTK_LABEL (label), 0.0);
   gtk_label_set_mnemonic_widget (GTK_LABEL (label), spin);
-  /* a wider gap to the combos than between a label and its widget */
-  gtk_widget_set_margin_start (label, 12);
-  gtk_grid_attach (GTK_GRID (grid), label, 2, row, 1, 1);
-  gtk_widget_set_halign (spin, GTK_ALIGN_START);
-  gtk_grid_attach (GTK_GRID (grid), spin, 3, row, 1, 1);
+  gtk_size_group_add_widget (percent_label_size_group, label);
+  gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 0);
+  /* at the right edge, where the test buttons end */
+  gtk_box_pack_end (GTK_BOX (hbox), spin, FALSE, FALSE, 0);
 
   tip = g_strdup_printf ("−100 %%: %s\n0 %%: %s\n+100 %%: %s",
                          low, _("Normal"), high);
@@ -1442,6 +1453,10 @@ speech_page_new (void)
     label_size_group = gtk_size_group_new (GTK_SIZE_GROUP_HORIZONTAL);
   if (combo_size_group == NULL)
     combo_size_group = gtk_size_group_new (GTK_SIZE_GROUP_HORIZONTAL);
+  if (percent_label_size_group == NULL)
+    percent_label_size_group = gtk_size_group_new (GTK_SIZE_GROUP_HORIZONTAL);
+  if (right_size_group == NULL)
+    right_size_group = gtk_size_group_new (GTK_SIZE_GROUP_HORIZONTAL);
 
   box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (box), 12);
@@ -1586,10 +1601,10 @@ speech_page_new (void)
   /* Test */
   grid = speech_page_frame_new (box, _("Test"));
 
-  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
-  gtk_grid_attach (GTK_GRID (grid), hbox, 0, 0, 1, 1);
-
+  /* the text where the combos are, the buttons below rate, pitch, volume */
   page->test_entry = gtk_entry_new ();
+  /* the combos decide the width, not the entry */
+  gtk_entry_set_width_chars (GTK_ENTRY (page->test_entry), 1);
   gtk_entry_set_text (GTK_ENTRY (page->test_entry),
                       _("This is how your computer speaks."));
   value = speechd_config_get (page->config, "DefaultLanguage");
@@ -1597,20 +1612,27 @@ speech_page_new (void)
   if (value != NULL && *value != '\0')
     speech_page_update_test_text (page, value);
   g_free (value);
-  gtk_widget_set_hexpand (page->test_entry, TRUE);
-  gtk_box_pack_start (GTK_BOX (hbox), page->test_entry, TRUE, TRUE, 0);
+  speech_page_grid_add (grid, 0, _("Te_xt:"), page->test_entry);
+  gtk_widget_set_halign (page->test_entry, GTK_ALIGN_FILL);
+  gtk_size_group_add_widget (combo_size_group, page->test_entry);
+
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
+  gtk_widget_set_margin_start (hbox, 12);
+  gtk_size_group_add_widget (right_size_group, hbox);
+  gtk_grid_attach (GTK_GRID (grid), hbox, 2, 0, 1, 1);
 
   button = gtk_button_new_with_mnemonic (_("_Speak"));
   g_signal_connect (button, "clicked",
                     G_CALLBACK (speech_page_test_clicked), page);
   g_signal_connect_swapped (page->test_entry, "activate",
                             G_CALLBACK (gtk_button_clicked), button);
-  gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
+  gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 0);
 
   button = gtk_button_new_with_mnemonic (_("S_top"));
   g_signal_connect (button, "clicked",
                     G_CALLBACK (speech_page_stop_clicked), page);
-  gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
+  gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 0);
 
   page->updating = FALSE;
 
