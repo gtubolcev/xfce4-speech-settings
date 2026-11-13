@@ -37,6 +37,8 @@
 
 /* Built-in defaults of Speech Dispatcher, used when a key is not set */
 #define DEFAULT_LANGUAGE "en-US"
+/* the test text grows up to this many lines, then scrolls */
+#define TEST_MAX_LINES 8
 
 typedef struct
 {
@@ -155,13 +157,14 @@ typedef struct
   GtkWidget     *punctuation_combo;
   GtkWidget     *capital_combo;
   GtkWidget     *audio_combo;
-  GtkWidget     *test_entry;
+  GtkWidget     *test_view;     /* GtkTextView, grows with its text */
   GtkWidget     *test_grid;
-  /* the sentence put into test_entry for a language, while the user keeps it */
+  /* the sentence put into test_view for a language, while the user keeps it */
   const gchar   *test_text;
 
   guint          save_id;
   guint          refill_id;
+  guint          fit_id;        /* fits test_view's height to its text */
   /* the server the module list came from (its socket), see
    * speech_page_server_changed */
   dev_t          server_dev;
@@ -1038,22 +1041,40 @@ speech_page_get_test_text (const gchar *language)
 
 
 
+/* the whole text of the test field */
+static gchar *
+speech_page_get_view_text (SpeechPage *page)
+{
+  GtkTextBuffer *buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (page->test_view));
+  GtkTextIter start, end;
+
+  gtk_text_buffer_get_bounds (buffer, &start, &end);
+  return gtk_text_buffer_get_text (buffer, &start, &end, FALSE);
+}
+
+
+
 /* Shows the sentence of the language, unless the user has typed another text */
 static void
 speech_page_update_test_text (SpeechPage  *page,
                               const gchar *language)
 {
   const gchar *text = speech_page_get_test_text (language);
-  const gchar *current;
+  GtkTextBuffer *buffer;
+  gchar *current;
+  gboolean kept;
 
-  if (text == NULL || page->test_entry == NULL)
+  if (text == NULL || page->test_view == NULL)
     return;
 
-  current = gtk_entry_get_text (GTK_ENTRY (page->test_entry));
-  if (page->test_text != NULL && g_strcmp0 (current, page->test_text) != 0)
+  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (page->test_view));
+  current = speech_page_get_view_text (page);
+  kept = page->test_text != NULL && g_strcmp0 (current, page->test_text) != 0;
+  g_free (current);
+  if (kept)
     return;
 
-  gtk_entry_set_text (GTK_ENTRY (page->test_entry), text);
+  gtk_text_buffer_set_text (buffer, text, -1);
   page->test_text = text;
 }
 
@@ -1286,7 +1307,7 @@ speech_page_test_clicked (GtkButton  *button,
 {
   const gchar *module;
   const gchar *language;
-  const gchar *text;
+  gchar       *text;
   GtkWidget   *entry;
   gint         i;
 
@@ -1326,14 +1347,16 @@ speech_page_test_clicked (GtkButton  *button,
                                 G_N_ELEMENTS (capital_modes));
   spd_set_capital_letters (page->connection, capital_values[i]);
 
-  text = gtk_entry_get_text (GTK_ENTRY (page->test_entry));
-  if (*text == '\0')
-    return;
-
-  spd_cancel (page->connection);
-  if (spd_say (page->connection, SPD_TEXT, text) < 0)
-    speech_page_show_message (page, GTK_MESSAGE_WARNING,
-                              _("Speech Dispatcher did not accept the text."));
+  text = speech_page_get_view_text (page);
+  g_strstrip (text);
+  if (*text != '\0')
+    {
+      spd_cancel (page->connection);
+      if (spd_say (page->connection, SPD_TEXT, text) < 0)
+        speech_page_show_message (page, GTK_MESSAGE_WARNING,
+                                  _("Speech Dispatcher did not accept the text."));
+    }
+  g_free (text);
 }
 
 
@@ -1361,6 +1384,8 @@ speech_page_free (gpointer data)
 
   if (page->refill_id != 0)
     g_source_remove (page->refill_id);
+  if (page->fit_id != 0)
+    g_source_remove (page->fit_id);
 
   if (page->connection != NULL)
     spd_close (page->connection);
@@ -1457,6 +1482,100 @@ speech_page_bind_percent (SpeechPage  *page,
 
 
 
+/* the height of one line of text in widget, in pixels */
+static gint
+speech_page_line_height (GtkWidget *widget)
+{
+  PangoLayout *layout = gtk_widget_create_pango_layout (widget, "Ag");
+  gint height;
+
+  pango_layout_get_pixel_size (layout, NULL, &height);
+  g_object_unref (layout);
+  return height;
+}
+
+
+
+/* Sets the height of the test text to its lines, at most TEST_MAX_LINES:
+ * a dialog does not grow by itself when only the natural height grows,
+ * so the minimum height follows the text. */
+static gboolean
+speech_page_fit_test_text (gpointer data)
+{
+  SpeechPage  *page = data;
+  GtkTextView *view = GTK_TEXT_VIEW (page->test_view);
+  GtkWidget   *scrolled = gtk_widget_get_parent (page->test_view);
+  GtkWidget   *toplevel;
+  GtkTextIter  end;
+  gint         y, height, line, old;
+
+  page->fit_id = 0;
+  gtk_text_buffer_get_end_iter (gtk_text_view_get_buffer (view), &end);
+  gtk_text_view_get_line_yrange (view, &end, &y, &height);
+  line = speech_page_line_height (page->test_view);
+  /* a scroll bar only when needed: even hidden it keeps the field high */
+  if (y + height > line * TEST_MAX_LINES)
+    gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled),
+                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+  else
+    {
+      gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled),
+                                      GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+      /* the view scrolled to the cursor while it was lower: back to the top */
+      gtk_adjustment_set_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (view)), 0);
+    }
+  height = CLAMP (y + height, line, line * TEST_MAX_LINES)
+           + gtk_text_view_get_top_margin (view) + gtk_text_view_get_bottom_margin (view);
+  old = gtk_scrolled_window_get_min_content_height (GTK_SCROLLED_WINDOW (scrolled));
+  if (height == old)
+    return G_SOURCE_REMOVE;
+
+  gtk_scrolled_window_set_min_content_height (GTK_SCROLLED_WINDOW (scrolled), height);
+  /* a window keeps its size when its content gets smaller: shrink it */
+  toplevel = gtk_widget_get_toplevel (page->test_view);
+  if (height < old && GTK_IS_WINDOW (toplevel))
+    gtk_window_resize (GTK_WINDOW (toplevel),
+                       gtk_widget_get_allocated_width (toplevel), 1);
+  return G_SOURCE_REMOVE;
+}
+
+/* after a change of the text or of the width (the lines wrap anew), once
+ * the view has laid the text out */
+static void
+speech_page_queue_fit (SpeechPage *page)
+{
+  if (page->fit_id == 0)
+    page->fit_id = g_idle_add_full (GTK_TEXT_VIEW_PRIORITY_VALIDATE + 1,
+                                    speech_page_fit_test_text, page, NULL);
+}
+
+static void
+speech_page_test_view_allocated (GtkWidget     *view,
+                                 GdkRectangle  *allocation,
+                                 SpeechPage    *page)
+{
+  speech_page_queue_fit (page);
+}
+
+
+
+/* Ctrl+Enter in the test text speaks it; Enter alone starts a new line */
+static gboolean
+speech_page_test_key_press (GtkWidget   *view,
+                            GdkEventKey *event,
+                            SpeechPage  *page)
+{
+  if ((event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter)
+      && (event->state & gtk_accelerator_get_default_mod_mask ()) == GDK_CONTROL_MASK)
+    {
+      speech_page_test_clicked (NULL, page);
+      return GDK_EVENT_STOP;
+    }
+  return GDK_EVENT_PROPAGATE;
+}
+
+
+
 GtkWidget *
 speech_page_new (void)
 {
@@ -1467,6 +1586,7 @@ speech_page_new (void)
   GtkWidget  *button;
   GtkWidget  *hbox;
   GtkWidget  *label;
+  GtkWidget  *scrolled;
   GError     *error = NULL;
   gchar      *value;
   gchar      *text;
@@ -1498,6 +1618,8 @@ speech_page_new (void)
   gtk_label_set_line_wrap (GTK_LABEL (page->info_label), TRUE);
   gtk_label_set_width_chars (GTK_LABEL (page->info_label), 40);
   gtk_label_set_xalign (GTK_LABEL (page->info_label), 0.0);
+  /* errors are copied into bug reports and searches */
+  gtk_label_set_selectable (GTK_LABEL (page->info_label), TRUE);
   gtk_container_add (GTK_CONTAINER (gtk_info_bar_get_content_area (
                        GTK_INFO_BAR (page->info_bar))), page->info_label);
   gtk_widget_show (page->info_label);
@@ -1631,32 +1753,63 @@ speech_page_new (void)
 
   page->test_grid = grid;
 
-  /* the text where the combos are, the buttons below rate, pitch, volume */
-  page->test_entry = gtk_entry_new ();
-  /* the combos decide the width, not the entry */
-  gtk_entry_set_width_chars (GTK_ENTRY (page->test_entry), 1);
-  gtk_entry_set_text (GTK_ENTRY (page->test_entry),
-                      _("This is how your computer speaks."));
+  /* the text where the combos are, the buttons below rate, pitch, volume;
+   * one line that grows with the text up to TEST_MAX_LINES, then scrolls
+   * (speech_page_fit_test_text) */
+  page->test_view = gtk_text_view_new ();
+  gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (page->test_view), GTK_WRAP_WORD_CHAR);
+  gtk_text_view_set_accepts_tab (GTK_TEXT_VIEW (page->test_view), FALSE);
+  gtk_text_view_set_left_margin (GTK_TEXT_VIEW (page->test_view), 6);
+  gtk_text_view_set_right_margin (GTK_TEXT_VIEW (page->test_view), 6);
+  gtk_text_view_set_top_margin (GTK_TEXT_VIEW (page->test_view), 4);
+  gtk_text_view_set_bottom_margin (GTK_TEXT_VIEW (page->test_view), 4);
+  gtk_text_buffer_set_text (gtk_text_view_get_buffer (GTK_TEXT_VIEW (page->test_view)),
+                            _("This is how your computer speaks."), -1);
   value = speechd_config_get (page->config, "DefaultLanguage");
   page->test_text = _("This is how your computer speaks.");
   if (value != NULL && *value != '\0')
     speech_page_update_test_text (page, value);
   g_free (value);
-  speech_page_grid_add (grid, 0, _("Te_xt:"), page->test_entry);
-  gtk_widget_set_halign (page->test_entry, GTK_ALIGN_FILL);
-  gtk_size_group_add_widget (combo_size_group, page->test_entry);
+  gtk_widget_set_tooltip_text (page->test_view,
+                               _("Ctrl+Enter speaks the text. Most Russian voices "
+                                 "take \"+\" before a vowel as its stress: зам+ок."));
+  g_signal_connect (page->test_view, "key-press-event",
+                    G_CALLBACK (speech_page_test_key_press), page);
+
+  scrolled = gtk_scrolled_window_new (NULL, NULL);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled),
+                                  GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+  gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled), GTK_SHADOW_IN);
+  gtk_container_add (GTK_CONTAINER (scrolled), page->test_view);
+  g_signal_connect_swapped (gtk_text_view_get_buffer (GTK_TEXT_VIEW (page->test_view)),
+                            "changed", G_CALLBACK (speech_page_queue_fit), page);
+  g_signal_connect (page->test_view, "size-allocate",
+                    G_CALLBACK (speech_page_test_view_allocated), page);
+
+  label = gtk_label_new_with_mnemonic (_("Te_xt:"));
+  gtk_label_set_xalign (GTK_LABEL (label), 0.0);
+  /* level with the first line, not with the middle of a tall field */
+  gtk_widget_set_valign (label, GTK_ALIGN_START);
+  gtk_widget_set_margin_top (label, 5);
+  gtk_size_group_add_widget (label_size_group, label);
+  gtk_label_set_mnemonic_widget (GTK_LABEL (label), page->test_view);
+  gtk_grid_attach (GTK_GRID (grid), label, 0, 0, 1, 1);
+  /* the combos decide the width, not the text */
+  gtk_widget_set_halign (scrolled, GTK_ALIGN_FILL);
+  gtk_widget_set_hexpand (scrolled, FALSE);
+  gtk_size_group_add_widget (combo_size_group, scrolled);
+  gtk_grid_attach (GTK_GRID (grid), scrolled, 1, 0, 1, 1);
 
   hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_widget_set_margin_start (hbox, 12);
   gtk_size_group_add_widget (right_size_group, hbox);
+  gtk_widget_set_valign (hbox, GTK_ALIGN_START);
   gtk_grid_attach (GTK_GRID (grid), hbox, 2, 0, 1, 1);
 
   button = gtk_button_new_with_mnemonic (_("_Speak"));
   g_signal_connect (button, "clicked",
                     G_CALLBACK (speech_page_test_clicked), page);
-  g_signal_connect_swapped (page->test_entry, "activate",
-                            G_CALLBACK (gtk_button_clicked), button);
   gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 0);
 
   button = gtk_button_new_with_mnemonic (_("S_top"));
