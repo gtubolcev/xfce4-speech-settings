@@ -23,8 +23,12 @@
 #include <stdlib.h>
 
 #include <gtk/gtk.h>
+#ifdef HAVE_XFCE
 #include <libxfce4ui/libxfce4ui.h>
 #include <libxfce4util/libxfce4util.h>
+#else
+#include <glib/gi18n.h>
+#endif
 
 #ifdef HAVE_GTK_X11
 #include <gdk/gdkx.h>
@@ -80,7 +84,13 @@ main (gint    argc,
   GtkWidget *button;
   GError    *error = NULL;
 
+#ifdef HAVE_XFCE
   xfce_textdomain (GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR, "UTF-8");
+#else
+  bindtextdomain (GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR);
+  bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
+  textdomain (GETTEXT_PACKAGE);
+#endif
 
   if (!gtk_init_with_args (&argc, &argv, NULL, entries, PACKAGE, &error))
     {
@@ -99,8 +109,12 @@ main (gint    argc,
 
   if (opt_version)
     {
+#ifdef HAVE_XFCE
       g_print ("%s %s (Xfce %s)\n", PACKAGE, PACKAGE_VERSION,
                xfce_version_string ());
+#else
+      g_print ("%s %s\n", PACKAGE, PACKAGE_VERSION);
+#endif
       return EXIT_SUCCESS;
     }
 
@@ -130,14 +144,25 @@ main (gint    argc,
 
   /* no buttons in the action area: the theme gives it a margin of its own,
    * so Close would not end where the controls above it end */
+#ifdef HAVE_XFCE
   dialog = xfce_titled_dialog_new ();
+#else
+  dialog = gtk_dialog_new ();
+#endif
   gtk_window_set_title (GTK_WINDOW (dialog), _("Speech"));
   gtk_window_set_icon_name (GTK_WINDOW (dialog), "audio-speakers");
   gtk_window_set_default_size (GTK_WINDOW (dialog), 560, -1);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       page, TRUE, TRUE, 0);
 
+#ifdef HAVE_XFCE
   button = xfce_gtk_button_new_mixed ("window-close-symbolic", _("_Close"));
+#else
+  button = gtk_button_new_with_mnemonic (_("_Close"));
+  gtk_button_set_image (GTK_BUTTON (button),
+                        gtk_image_new_from_icon_name ("window-close-symbolic",
+                                                      GTK_ICON_SIZE_BUTTON));
+#endif
   g_signal_connect (button, "clicked", G_CALLBACK (close_clicked), dialog);
   speech_page_add_close (page, button);
 
