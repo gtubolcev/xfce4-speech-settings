@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 # The same source is built twice: with Xfce (xfce4-speech-settings) and with
-# GTK only (speech-settings).
+# GTK only (speech-settings-standalone).
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
@@ -21,4 +21,4 @@ override_dh_auto_test:
 
 override_dh_auto_install:
 	dh_auto_install --builddirectory=build-xfce --destdir=debian/xfce4-speech-settings
-	dh_auto_install --builddirectory=build-gtk --destdir=debian/speech-settings
+	dh_auto_install --builddirectory=build-gtk --destdir=debian/speech-settings-standalone
