@@ -21,6 +21,97 @@
   `Zonos3Voice "<lang>" "<voice>"`. Native modules (espeak-ng, rhvoice): list greyed out, the
   "Voice type" row appears instead. The test speaks with the chosen voice.
 
+## Roadmap (user, 2026-11-12, evening)
+Three goals, in this order:
+1. **Tidy the code** of the modules and the GUI so that a human programmer can read it:
+   - move the build recipes that only live in the git-ignored `XFCE-patches/_tmp/sherpa`
+     (sherpa-onnx 2.0.1-3, model packages supertonic-3, pocket, mms-ru, kitten-nano-en)
+     into linux-tts; the others are in /home/grigory/Storage/Claude (speechd-src,
+     rhvoice, piper-build, vosk, kokoro-ru) — move their recipes too;
+   - `common/` in linux-tts: the code all five modules repeat (config parsing, unquote,
+     SSML → text, sentence split, voice by name / pick_voice, send_audio,
+     process_input, the module_* stubs) and the server code silero and zonos3 share
+     (state file, spawn/adopt/watch/stop, Reader, json_escape) — about 400 lines;
+   - one meson build instead of the docker build.sh scripts; `debian/` dirs instead of
+     build-deb.sh (Launchpad needs source packages);
+   - comments: what each module does, its threads, how STOP works;
+   - the GUI (speech-page.c 1670 lines, speechd-config.c 1136): split, comment;
+   - run every proto.py before and after, compare the WAVs.
+2. **More voices**, en first, then the main European languages, then the former USSR.
+   Now: Supertonic 3 (31 languages × the same 10 voices; has en, most EU, uk, lt, lv, et);
+   missing everywhere: be, kk, ka, hy, az, uz, ky, tg; no, is, ca, sr, mk, sq, ga, cy, eu.
+   - espeak-ng phonemizer in sd_sherpa → Piper (40+ languages, hundreds of voices,
+     licence per voice), Kokoro v1.0 (en ~28 voices, es, fr, it, pt; Apache), Kitten
+     (en, 8). No separate sd_piper: the model stays loaded, and piper1-gpl is GPL-3.
+     The built sd_sherpa becomes GPL-3 through libespeak-ng (sources stay MIT).
+   - RHVoice voices from multiverse (uk, ky, tt, uz, pl, cs, sk, mk, sq, eo, pt-br):
+     check that the GUI shows them.
+   - Silero v3 / v4_cyrillic (kk, ky, uz, tt, ba, udm, xal, …; en 118 speakers, de,
+     es, fr, ua): NC → installer only. MMS (be, hy, az, tg, tk, …): NC, one voice each.
+   - Kitten: more English timbres by mixing its 8 style vectors (256 × 400 rows per
+     voice), or a KVoiceWalk-like search against a reference recording. Kokoro vectors
+     cannot be moved into Kitten (another model's style space).
+   - sd_vosk, from the alphacep/vosk-tts issues (read 2026-11-12): vosk-tts stays Russian
+     only (en/fr/tr requests answered "use Piper"). Worth doing: vosk-model-tts-ru-0.10-multi
+     (834 MB; nshmyrev recommends it over 0.9 for pauses, #51) — probably multistream_v3,
+     our port knows only v1: add v2/v3 (word positions, `phone_duration_extra` from upstream
+     050118b "Duration extra for pauses", lowercase BERT). "+" before a vowel marks stress
+     (#4; our g2p handles it) → a user stress dictionary in the GUI. Latin names in Russian
+     text (#47) — share a transliteration with Silero. Unknown symbols (#50, KeyError
+     upstream) do not break sd_vosk (tested). The slow 0.8+ load (#46) is the
+     FindReusableTensor issue we avoid with ORT_PARALLEL — the user may post that in #46.
+   - Tips from nshmyrev (2026-11-13): **TeraTTSv2** (TeraSpace, HF TeraSpace/TeraTTSv2) — a
+     Supertonic derivative, ru + en, 10 styles (ru_f1, ru_f2, ru_m1, ru_m5, 6 English), 44.1 kHz,
+     ONNX only (text_encoder, duration_predictor, one 8-step sampler graph, vocoder; .npy
+     styles; unicode_indexer.json). The sampler graph differs from Supertonic's
+     vector_estimator, so sherpa's Supertonic code does not run it: a small C runner of
+     ~300 lines (like kokoro.c), `<ru>`/`<en>` tags, "+" stress marks — from RUAccent
+     (MIT, bundled; dictionary mode = 21 MB, no neural nets) or our vosk stress placer.
+     Licence OpenRAIL-M + attribution only for commercial products → same check as
+     Supertonic. **Shtorm-PocketTTS-RU** (ArtShtorm, CC-BY-4.0 → PPA ok): Pocket TTS
+     fine-tuned on Russian (fast/slow variants, audiobook style, SentencePiece 4000);
+     needs acute stress marks (U+0301) → vosk stress placer; voice from a 5 s reference
+     (consent!) — references could be our own synthetic voices. Only safetensors: export
+     to ONNX with sherpa-onnx's Pocket export script (in docker), then sd_sherpa's Pocket
+     family runs it with a Russian tokenizer.
+   - **Russian stress library in C** (user, 2026-11-13: "ruaccent и ещё какие-то ударяторы
+     портировать на C"): `common/ru-stress`, a port of RUAccent (MIT, code and models,
+     HF ruaccent/accentuator; TeraTTS has a compact 300-line Python adaptation to follow).
+     Stages: (1) dictionary (accents.json, 21 MB gz → sorted mmap file like vosk's) + ё
+     words + "+" from the user wins + a user dictionary from the GUI; (2) the char model
+     for unknown words (0.8 MB ONNX, char vocab); (3) the tiny BERTs "needs stress?" and
+     ё-homographs (WordPiece, reuse vosk.c's tokenizer); (4) optional: the homograph
+     DeBERTa (360 MB, BPE tokenizer) — not for weak machines. Output both "+" and U+0301.
+     Users: Shtorm and TeraTTS (they need it), Kokoro-ru (ru-g2p), unknown words of vosk,
+     maybe Supertonic ru (test whether it takes stress marks). After common/.
+     **First (user, 2026-11-13: "для начала пойдёт и от воск, так быстрее"):** take the
+     stress placer out of sd_vosk into common/ (its dictionary + BERT homographs) and use
+     it for Shtorm/TeraTTS; the RUAccent port comes later.
+   - **Done 2026-11-13: sd_teratts** (linux-tts/teratts/: teratts.c engine, sd_teratts.c,
+     teratts-test, build.sh, build-deb.sh; common/ru-stress.c = the vosk dictionary stress
+     without espeak, "+" or U+0301; common/num-words.c = num2words ru/en). The C port
+     matches the Python reference (same noise) to 7e-5. Text prep: Latin runs → `<en>`,
+     Cyrillic → `<ru>`, "21 000", "3.14." and "1.2.3" handled better than teratts.py,
+     dash → comma, & → и/and. ~3× faster than real time on 4 threads, load 1.9 s.
+     Debs in ~/Storage/Claude/teratts-deb (speech-dispatcher-teratts 0.1-1~local,
+     teratts-model-v2 2.0-1~local, both LICENSE files next to the model). GUI: "teratts"
+     added to own_modules (not rebuilt yet). Done too: kokoro's ru-g2p.c uses
+     common/ru-stress.c (IPA of 1539 lines identical; "+" before a vowel now sets
+     the stress instead of being read "плюс"; speech-dispatcher-kokoro 0.1-3~local). TeraTTS speed: the sampler
+     (8 Euler steps in one Loop graph) is ~75 % of the time and memory bound; int8
+     (dynamic, MatMul or MatMul+Conv, Loop body extracted) is not faster or is slower
+     and hurts the sound, 8 threads slower than 4; left: shorter first chunk, synthesize
+     the next sentence while one plays. U+0301 after a vowel = "+" (sd_teratts 0.1-2).
+     GUI 0.1.0-7: the test text is a GtkTextView that grows to 8 lines, Ctrl+Enter
+     speaks, tooltip on "+". Ordinals ("5-й") and number agreement are not
+     handled; streaming vocoder (16-frame chunks) if first-sound latency matters.
+3. **Packages / PPA**: PPA ppa:gtubolcev/xfce-patches has only xfce4-settings and
+   thunar-disk-usage-plugin (v0.4.1); a linux-tts PPA does not exist yet. Into it: our
+   modules, sherpa-onnx, kitten (Apache), vosk-ru (Apache), Supertonic and Pocket after
+   a licence check; never Silero or MMS (NC). Installed locally only (~local): speechd
+   +fix1, rhvoice +voice1, sherpa-onnx, piper-tts, all modules and models;
+   xfce4-speech-settings 0.1.0-5 built, 0.1.0-4 installed.
+
 ## Next
 - **Language first** (user, 2026-11-11: "ставим первым в GUI (и логически) именно язык, и уже
   к нему привязываем конфигурацию"). The dialog starts with the language; everything that
@@ -219,6 +310,29 @@
   voice that will actually speak; choosing a concrete engine voice belongs in the engine tab
   (written to the module config: DefaultVoice / type → voice mapping).
 - Voice catalog: filter by language, sample playback.
+- **Models / voices under special licences** (user, 2026-11-12, first case: Silero v5_ru,
+  CC BY-NC 4.0). Launchpad PPAs accept only free (DFSG/OSI-style) licences, so NC or
+  otherwise restricted files never go into a .deb; the package ships only a manifest and
+  the downloader (the Debian contrib "installer" pattern, cf. ttf-mscorefonts-installer).
+  Manifest entry per file: id, engine, languages, URL, sha256, size, licence (SPDX id + URL
+  of the full text + one-line summary, e.g. "non-commercial use only"), upstream homepage.
+  In the engine tab such entries show an "Install for non-commercial use…" button: a dialog
+  with the licence summary and full text, the user must accept; then download, check
+  sha256, save to `~/.local/share/<app>/voices/<engine>/<id>/` together with LICENSE,
+  SOURCE (URL, sha256, date, accepted licence) and README from upstream; remove deletes the
+  whole dir. Free models go the same way (or as .debs) but without the acceptance step.
+  Models that are executable code (torch.package / pickle, e.g. Silero) are loaded only
+  from the pinned sha256 in the manifest.
+- **A voice for weak machines: KittenTTS 0.8** (user, 2026-11-12: "Не у всех nvidia 4090").
+  github.com/KittenML/KittenTTS; nano 15M (int8 25 MB, fp32 56 MB), micro 40M, mini 80M;
+  ONNX, StyleTTS 2 like Kokoro, espeak-ng phonemes, English only, 8 voices, 24 kHz;
+  weights Apache-2.0 → fit the linux-tts PPA. A module = sd_kokoro with another model
+  (or through sherpa-onnx, which has a Kitten family). Measure on the Ryzen 5 3500U: time
+  to first audio and real-time factor at 1–2 threads, compare with Kokoro and Piper.
+  Maybe a "low resources" hint in the engine tab picks it. Not KittenTTS 2 (1.7B, ru among
+  20 languages): Stellon Labs Community License (revocable, AUP not public, "Powered by
+  KittenML", no training on its output) and too slow to start for a screen reader; at most
+  a later "read a long text" mode, model downloaded by the user.
 - Speech input (STT) tab. User's idea (2026-11-11): rewrite the UI of an existing
   dictation app in GTK rather than design one from scratch: github.com/cjpais/Handy
   (Rust/Tauri, MIT, ~38k stars) or one of the dozen similar apps. Engine candidate:
