@@ -2,3 +2,5 @@ option('x11', type: 'feature', value: 'auto',
        description: 'Embedding into the settings manager (X11 only)')
 option('speechd-sysconfdir', type: 'string', value: '/etc/speech-dispatcher',
        description: 'Configuration directory of Speech Dispatcher')
+option('xfce', type: 'feature', value: 'auto',
+       description: 'Build xfce4-speech-settings for Xfce; disabled: speech-settings, plain GTK')

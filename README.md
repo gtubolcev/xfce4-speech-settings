@@ -1,8 +1,9 @@
 # xfce4-speech-settings
 
 A settings dialog for [speech-dispatcher](https://github.com/brailcom/speechd), the
-text-to-speech service of the Linux desktop, for Xfce. It appears in the Xfce
-settings manager.
+text-to-speech service of the Linux desktop. Two builds of the same code:
+`xfce4-speech-settings` appears in the Xfce settings manager; `speech-settings` is
+the same dialog in plain GTK 3, for other desktops.
 
 - language, synthesizer and voice (the real voices of the synthesizer for the
   language);
@@ -24,8 +25,10 @@ ninja -C build
 meson test -C build
 ```
 
-Needs GTK 3, libxfce4ui-2, libxfce4util and libspeechd. `build-deb.sh` builds a
-.deb in a docker image (`speech-build`).
+Needs GTK 3 and libspeechd; libxfce4ui-2 and libxfce4util for the Xfce build.
+`-Dxfce=disabled` builds `speech-settings` without them (by default the Xfce
+build is made when the libraries are there). `build-deb.sh` builds a .deb in a
+docker image (`speech-build`).
 
 Status: early, version 0.1. Plans are in [PLAN.md](PLAN.md).
 

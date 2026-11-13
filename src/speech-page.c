@@ -24,8 +24,13 @@
 #include <sys/stat.h>
 #include <string.h>
 
+#ifdef HAVE_XFCE
 #include <libxfce4ui/libxfce4ui.h>
 #include <libxfce4util/libxfce4util.h>
+#else
+#include <glib/gi18n.h>
+#include <gtk/gtk.h>
+#endif
 #include <speech-dispatcher/libspeechd.h>
 
 #include "speech-page.h"
@@ -410,16 +415,38 @@ speech_page_frame_new (GtkWidget   *box,
                        const gchar *title)
 {
   GtkWidget *frame;
-  GtkWidget *bin;
   GtkWidget *grid;
-
-  frame = xfce_gtk_frame_box_new (title, &bin);
-  gtk_box_pack_start (GTK_BOX (box), frame, FALSE, TRUE, 0);
 
   grid = gtk_grid_new ();
   gtk_grid_set_row_spacing (GTK_GRID (grid), 6);
   gtk_grid_set_column_spacing (GTK_GRID (grid), 12);
-  gtk_container_add (GTK_CONTAINER (bin), grid);
+
+#ifdef HAVE_XFCE
+  {
+    GtkWidget *bin;
+
+    frame = xfce_gtk_frame_box_new (title, &bin);
+    gtk_container_add (GTK_CONTAINER (bin), grid);
+  }
+#else
+  {
+    /* what xfce_gtk_frame_box_new() draws: a bold title, no border, the
+     * contents indented under it */
+    GtkWidget *label = gtk_label_new (NULL);
+    gchar *markup = g_markup_printf_escaped ("<b>%s</b>", title);
+
+    gtk_label_set_markup (GTK_LABEL (label), markup);
+    g_free (markup);
+    frame = gtk_frame_new (NULL);
+    gtk_frame_set_label_widget (GTK_FRAME (frame), label);
+    gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_NONE);
+    gtk_widget_set_margin_start (grid, 18);
+    gtk_widget_set_margin_top (grid, 6);
+    gtk_widget_set_margin_bottom (grid, 6);
+    gtk_container_add (GTK_CONTAINER (frame), grid);
+  }
+#endif
+  gtk_box_pack_start (GTK_BOX (box), frame, FALSE, TRUE, 0);
 
   return grid;
 }
@@ -435,7 +462,7 @@ speech_page_connect (SpeechPage *page)
   if (page->connection != NULL)
     return TRUE;
 
-  page->connection = spd_open2 ("xfce4-speech-settings", "main", NULL,
+  page->connection = spd_open2 (PACKAGE, "main", NULL,
                                 SPD_MODE_SINGLE, NULL, TRUE, &error);
   if (page->connection == NULL)
     {
