@@ -1,0 +1,5 @@
+xfce4-speech-settings (0.1.0-1) resolute; urgency=medium
+
+  * First package: xfce4-speech-settings and speech-settings (GTK only).
+
+ -- Grigory Tuboltsev <gtubolcev@gmail.com>  Fri, 13 Nov 2026 01:30:00 +0100

@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+# The same source is built twice: with Xfce (xfce4-speech-settings) and with
+# GTK only (speech-settings).
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@ --buildsystem=meson
+
+override_dh_auto_configure:
+	dh_auto_configure --builddirectory=build-xfce -- -Dxfce=enabled -Dx11=enabled
+	dh_auto_configure --builddirectory=build-gtk -- -Dxfce=disabled -Dx11=enabled
+
+override_dh_auto_build:
+	dh_auto_build --builddirectory=build-xfce
+	dh_auto_build --builddirectory=build-gtk
+
+override_dh_auto_test:
+	dh_auto_test --builddirectory=build-xfce
+	dh_auto_test --builddirectory=build-gtk
+
+override_dh_auto_install:
+	dh_auto_install --builddirectory=build-xfce --destdir=debian/xfce4-speech-settings
+	dh_auto_install --builddirectory=build-gtk --destdir=debian/speech-settings
