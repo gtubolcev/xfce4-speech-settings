@@ -5,9 +5,11 @@
 #   scripts/upload-ppa.sh [codename]
 #
 # The upstream version is the one in meson.build, plus +git<date>.<commit>
-# when HEAD is not the tag v<version>; the package version adds -1~ppa<N>
-# (N counted from the PPA, a version can be uploaded only once) and
-# ~<codename>. PPA=... overrides the target (ppa:gtubolcev/linux-tts);
+# of the last commit outside debian/ and scripts/ when that is not the tag
+# v<version>: the orig tarball is that commit without debian/, debian/ comes
+# from HEAD, so a packaging change keeps the tarball. The package version
+# adds -1~ppa<N>~<codename> (N counted per codename from the PPA: a version
+# can be uploaded only once). PPA=... overrides the target (ppa:gtubolcev/linux-tts);
 # SIGN_KEY=... the key; NO_UPLOAD=1 only builds the source package
 # (unsigned) into _build/ppa/.
 set -euo pipefail
@@ -21,27 +23,30 @@ export DEBFULLNAME=${DEBFULLNAME:-"Grigory Tuboltsev"}
 export DEBEMAIL=${DEBEMAIL:-"gtubolcev@gmail.com"}
 
 git -C "$ROOT" diff --quiet HEAD || { echo "error: uncommitted changes" >&2; exit 1; }
-UPSTREAM=$(sed -n "s/^  version: '\(.*\)',$/\1/p" "$ROOT/meson.build")
-if [ "$(git -C "$ROOT" tag --points-at HEAD)" != "v$UPSTREAM" ]; then
-  UPSTREAM=$UPSTREAM+git$(git -C "$ROOT" log -1 --date=format:%Y%m%d --format=%cd).$(git -C "$ROOT" rev-parse --short=7 HEAD)
+CODE=$(git -C "$ROOT" log -1 --format=%H -- . ':(exclude)debian' ':(exclude)scripts')
+UPSTREAM=$(git -C "$ROOT" show "$CODE:meson.build" | sed -n "s/^  version: '\(.*\)',$/\1/p")
+if ! git -C "$ROOT" tag --points-at "$CODE" | grep -qx "v$UPSTREAM"; then
+  UPSTREAM=$UPSTREAM+git$(git -C "$ROOT" log -1 --date=format:%Y%m%d --format=%cd "$CODE").$(git -C "$ROOT" rev-parse --short=7 "$CODE")
 fi
 
-# the next upload number for versions starting with $1
+# the next upload number for versions $1<N>~$DIST
 next_upload() {
   curl -fsS --retry 5 --retry-all-errors "https://api.launchpad.net/devel/${PPA_ARCHIVE}?ws.op=getPublishedSources&source_name=$SRC&exact_match=true" \
     | python3 -c 'import json, sys
 prefix = sys.argv[1]
-nums = [e["source_package_version"][len(prefix):].split("~")[0] for e in json.load(sys.stdin)["entries"]
-        if e["source_package_version"].startswith(prefix)]
-print(max((int(n) for n in nums if n.isdigit()), default=0) + 1)' "$1"
+suffix = "~" + sys.argv[2]
+nums = [v[len(prefix):-len(suffix)] for v in (e["source_package_version"] for e in json.load(sys.stdin)["entries"])
+        if v.startswith(prefix) and v.endswith(suffix)]
+print(max((int(n) for n in nums if n.isdigit()), default=0) + 1)' "$1" "$DIST"
 }
 
 WORK=$ROOT/_build/ppa/$DIST
 rm -rf "$WORK"
 mkdir -p "$WORK"
-git -C "$ROOT" archive --format=tar --prefix="$SRC-$UPSTREAM/" HEAD -- . ':(exclude)debian' \
+git -C "$ROOT" archive --format=tar --prefix="$SRC-$UPSTREAM/" "$CODE" -- . ':(exclude)debian' \
   | xz -9 > "$WORK/${SRC}_$UPSTREAM.orig.tar.xz"
-git -C "$ROOT" archive --format=tar --prefix="$SRC-$UPSTREAM/" HEAD | tar -x -C "$WORK"
+tar -xf "$WORK/${SRC}_$UPSTREAM.orig.tar.xz" -C "$WORK"
+git -C "$ROOT" archive --format=tar --prefix="$SRC-$UPSTREAM/" HEAD -- debian | tar -x -C "$WORK"
 cd "$WORK/$SRC-$UPSTREAM"
 VERSION=$UPSTREAM-1~ppa
 VERSION=$VERSION$(next_upload "$VERSION")~$DIST
