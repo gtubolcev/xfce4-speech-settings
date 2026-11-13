@@ -911,7 +911,7 @@ module_voice_key (const gchar *module)
 }
 
 /* our modules, which read "<Module>Voice", also from older configurations */
-static const gchar *const own_modules[] = { "zonos3", "sherpa", "vosk", "kokoro", NULL };
+static const gchar *const own_modules[] = { "zonos3", "sherpa", "vosk", "kokoro", "teratts", NULL };
 
 SpeechdVoiceSetting
 speechd_module_voice_setting (const gchar *module)
