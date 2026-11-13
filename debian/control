@@ -1,0 +1,40 @@
+Source: xfce4-speech-settings
+Section: x11
+Priority: optional
+Maintainer: Grigory Tuboltsev <gtubolcev@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               gettext,
+               libgtk-3-dev (>= 3.24),
+               libspeechd-dev (>= 0.11),
+               libxfce4ui-2-dev (>= 4.18),
+               libxfce4util-dev (>= 4.18),
+               meson,
+               pkgconf
+Standards-Version: 4.7.0
+Homepage: https://github.com/gtubolcev/xfce4-speech-settings
+Vcs-Git: https://github.com/gtubolcev/xfce4-speech-settings.git
+Vcs-Browser: https://github.com/gtubolcev/xfce4-speech-settings
+Rules-Requires-Root: no
+
+Package: xfce4-speech-settings
+Architecture: any
+Depends: speech-dispatcher, ${misc:Depends}, ${shlibs:Depends}
+Description: speech settings dialog for Xfce
+ Chooses the language, the synthesizer and the voice of speech-dispatcher, the
+ text-to-speech service of the desktop, and sets the rate, pitch, volume,
+ punctuation and audio output. Has a field to test the voice.
+ .
+ This build appears in the Xfce settings manager. speech-settings is the same
+ dialog for other desktops.
+
+Package: speech-settings
+Section: utils
+Architecture: any
+Depends: speech-dispatcher, ${misc:Depends}, ${shlibs:Depends}
+Description: speech settings dialog
+ Chooses the language, the synthesizer and the voice of speech-dispatcher, the
+ text-to-speech service of the desktop, and sets the rate, pitch, volume,
+ punctuation and audio output. Has a field to test the voice.
+ .
+ This build needs only GTK 3; xfce4-speech-settings is the same dialog for the
+ Xfce settings manager.
