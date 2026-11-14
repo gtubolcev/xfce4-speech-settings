@@ -117,21 +117,42 @@ static const struct
 }
 test_texts[] =
 {
+  { "ar", "هكذا يتكلم حاسوبك." },
+  { "be", "Так гаворыць ваш камп’ютар." },
+  { "bg", "Ето как говори вашият компютър." },
+  { "ca", "Així parla el vostre ordinador." },
   { "cs", "Takhle mluví váš počítač." },
+  { "da", "Sådan taler din computer." },
   { "de", "So spricht Ihr Computer." },
+  { "el", "Έτσι μιλάει ο υπολογιστής σας." },
   { "en", "This is how your computer speaks." },
   { "es", "Así habla tu ordenador." },
+  { "et", "Nii räägib teie arvuti." },
   { "fi", "Näin tietokoneesi puhuu." },
   { "fr", "Voici comment parle votre ordinateur." },
+  { "hi", "आपका कंप्यूटर ऐसे बोलता है।" },
+  { "hr", "Ovako govori vaše računalo." },
+  { "hu", "Így beszél a számítógéped." },
+  { "id", "Beginilah komputer Anda berbicara." },
   { "it", "Così parla il tuo computer." },
   { "ja", "これがあなたのコンピューターの声です。" },
+  { "kk", "Компьютеріңіз осылай сөйлейді." },
+  { "ko", "컴퓨터가 이렇게 말합니다." },
+  { "lt", "Taip kalba jūsų kompiuteris." },
+  { "lv", "Tā runā jūsu dators." },
+  { "nb", "Slik snakker datamaskinen din." },
   { "nl", "Zo spreekt je computer." },
   { "pl", "Tak mówi twój komputer." },
   { "pt", "É assim que o seu computador fala." },
+  { "ro", "Așa vorbește computerul dumneavoastră." },
   { "ru", "Так говорит ваш компьютер." },
+  { "sk", "Takto hovorí váš počítač." },
+  { "sl", "Tako govori vaš računalnik." },
+  { "sr", "Овако говори ваш рачунар." },
   { "sv", "Så här talar din dator." },
   { "tr", "Bilgisayarınız böyle konuşur." },
   { "uk", "Так говорить ваш комп’ютер." },
+  { "vi", "Đây là cách máy tính của bạn nói." },
   { "zh", "这就是你的电脑说话的声音。" },
 };
 
@@ -1091,7 +1112,12 @@ speech_page_update_test_text (SpeechPage  *page,
   gchar *current;
   gboolean kept;
 
-  if (text == NULL || page->test_view == NULL)
+  /* no sentence for this language: English rather than the sentence of the
+   * language chosen before */
+  if (text == NULL)
+    text = speech_page_get_test_text ("en");
+
+  if (page->test_view == NULL)
     return;
 
   buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (page->test_view));
