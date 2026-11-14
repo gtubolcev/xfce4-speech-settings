@@ -74,6 +74,14 @@ Three goals, in this order:
      (consent!) — references could be our own synthetic voices. Only safetensors: export
      to ONNX with sherpa-onnx's Pocket export script (in docker), then sd_sherpa's Pocket
      family runs it with a Russian tokenizer.
+   - **Light voices for uk / be, survey 2026-11-14** (user: "украинский и белорусский
+     интересны"). Details in linux-tts/RESEARCH-tts-engines.md ("Ukrainian, Belarusian and
+     other languages"). Steps: (1) Ukrainian — Piper uk_UA voices and Coqui uk-mai via
+     sd_sherpa, no new code; (2) Belarusian — ask alex73 about the training data of
+     BelarusianTTSviaCoquiTTS (Glow-TTS + HiFi-GAN, Apache-2.0), export to ONNX, small
+     runner; fallback Coqui be glow-tts (CC-BY-SA); watch YauhenBichel/belarusian-tts for
+     a Piper be voice. Not suitable: XTTS fine-tunes (CPML), OmniVoice (too slow on CPU),
+     loudr-1 (no ru/uk/be, 2.6 GB).
    - **Russian stress library in C** (user, 2026-11-13: "ruaccent и ещё какие-то ударяторы
      портировать на C"): `common/ru-stress`, a port of RUAccent (MIT, code and models,
      HF ruaccent/accentuator; TeraTTS has a compact 300-line Python adaptation to follow).
@@ -149,7 +157,29 @@ Three goals, in this order:
   read from the module config (argv[1]), winning over the voice type; the GUI picks it up through
   the commented example in rhvoice.conf. Local deb first, upstream PR to RHVoice/RHVoice later
   (only if the user asks). Patch script: _tmp/rhv/apply-voice-patch.py.
+- **Check that rate / pitch / volume really work** (user, 2026-11-13: "по моим ощущениям, эти
+  опции сейчас чаще ни на что не влияют"). For every module (sd_zonos3, sd_sherpa, sd_vosk,
+  piper, supertonic, pocket-generic, rhvoice, ...) and a voice or two each: spd-say with
+  -r/-p/-i at the extremes, compare length (rate) and pitch/RMS of the output (no playback:
+  write to a file or capture the audio stream). Table of what works; then either make our
+  modules honour them (length scale, resampling, gain) or grey the sliders out for an
+  engine that ignores them, with a tooltip.
 - Check the 560 px default width on a real screen.
+- **Only the main synthesizer in memory** (user, 2026-11-14: "нужно только один держать в
+  памяти, только проставленный текущим основным в интерфейсе"). Found: speechd keeps every
+  module it started alive with its model loaded — on the 5.7 GB laptop sd_vosk ~1 GB,
+  sd_teratts ~0.8 GB, sd_kokoro ~0.4 GB, festival ~0.3 GB, all pushed into swap.
+  Plan: (1) our modules load the model lazily on the first SPEAK, not at INIT, and free it
+  after a few idle minutes (common/ code, a timer in the module's main loop; reload on the
+  next SPEAK, first sound later by the load time). The main synthesizer chosen in the GUI:
+  same by default; a check box "Load at login" (for heavy TTS users, user 2026-11-14:
+  "можно эту загрузку сделать опциональной") preloads it at session start and keeps it
+  loaded. The other modules never preload. (2) checked 2026-11-14: speechd starts all
+  configured modules at once, and our modules load the model at INIT (after a speechd
+  restart: sd_vosk 1047 MB, sd_teratts 814, sd_kokoro 442 right away; rhvoice 30, the rest
+  3-11), so (1) is what helps; still check whether AddModule / the "Use All" config can
+  limit which modules start; the GUI then lists only the chosen ones, other engines still selectable by
+  clients like Orca. Measure RSS before and after.
 - README.
 
 ## Later
