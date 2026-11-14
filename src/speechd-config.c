@@ -420,7 +420,9 @@ speechd_config_set_int (SpeechdConfig *config,
 
 
 /* Comments out every active line of @key, so the built-in default of
- * Speech Dispatcher applies again. */
+ * Speech Dispatcher applies again. A line that follows a commented example
+ * of @key, where speechd_config_set() puts new lines, is removed instead:
+ * otherwise every set and unset would leave one more comment behind. */
 void
 speechd_config_unset (SpeechdConfig *config,
                       const gchar   *key)
@@ -431,8 +433,13 @@ speechd_config_unset (SpeechdConfig *config,
     {
       gchar *line = g_ptr_array_index (config->lines, i);
 
-      g_ptr_array_index (config->lines, i) = g_strconcat ("# ", line, NULL);
-      g_free (line);
+      if (i > 0 && find_commented (config, key) == i - 1)
+        g_ptr_array_remove_index (config->lines, i);
+      else
+        {
+          g_ptr_array_index (config->lines, i) = g_strconcat ("# ", line, NULL);
+          g_free (line);
+        }
       config->dirty = TRUE;
     }
 }

@@ -121,6 +121,50 @@ test_edit (void)
 
 
 
+/* Clearing and retyping the language must not pile up comment lines */
+static void
+test_unset_set (void)
+{
+  gchar         *dir = setup_config_home ();
+  gchar         *conf_dir, *path, *contents;
+  SpeechdConfig *config;
+  guint          i;
+
+  conf_dir = g_build_filename (dir, "speech-dispatcher", NULL);
+  path = g_build_filename (conf_dir, "speechd.conf", NULL);
+  g_mkdir_with_parents (conf_dir, 0700);
+  g_assert_true (g_file_set_contents (path,
+                                      "# DefaultLanguage \"en-US\"\n"
+                                      "DefaultVolume 100\n", -1, NULL));
+
+  config = speechd_config_load (NULL);
+  for (i = 0; i < 3; i++)
+    {
+      speechd_config_set (config, "DefaultLanguage", "lt");
+      speechd_config_unset (config, "DefaultLanguage");
+    }
+  g_assert_true (speechd_config_save (config, NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==, "# DefaultLanguage \"en-US\"\n"
+                                 "DefaultVolume 100\n");
+  g_free (contents);
+
+  speechd_config_set (config, "DefaultLanguage", "lv");
+  g_assert_true (speechd_config_save (config, NULL));
+  speechd_config_free (config);
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==, "# DefaultLanguage \"en-US\"\n"
+                                 "DefaultLanguage \"lv\"\n"
+                                 "DefaultVolume 100\n");
+  g_free (contents);
+
+  g_free (path);
+  g_free (conf_dir);
+  cleanup_config_home (dir);
+}
+
+
+
 static void
 test_no_user_file (void)
 {
@@ -219,6 +263,7 @@ main (int    argc,
   g_test_init (&argc, &argv, G_TEST_OPTION_ISOLATE_DIRS, NULL);
 
   g_test_add_func ("/config/edit", test_edit);
+  g_test_add_func ("/config/unset-set", test_unset_set);
   g_test_add_func ("/config/no-user-file", test_no_user_file);
   g_test_add_func ("/config/detect-modules", test_detect_modules);
 
