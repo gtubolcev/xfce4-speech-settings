@@ -164,6 +164,14 @@ Three goals, in this order:
   write to a file or capture the audio stream). Table of what works; then either make our
   modules honour them (length scale, resampling, gain) or grey the sliders out for an
   engine that ignores them, with a tooltip.
+- **Check punctuation and capital letters the same way** (user, 2026-11-14). Punctuation is
+  only partly checked (the "said three times" bug, mode Some); None, Most and All not at all.
+  Capital letters ("Say “capital”", "Play a sound") not checked at all. For every module:
+  a test text with , ; : ! ? ( ) - " @ # and words with capitals (also all-caps and a
+  single capital letter), each mode, output to a file and checked through STT or by length;
+  "Play a sound" without playback (the icon goes to the audio server, so check the module
+  log / speechd log instead of listening). Same table as above; a mode a module ignores is
+  noted in the tooltip or handled in our modules.
 - Check the 560 px default width on a real screen.
 - **Only the main synthesizer in memory** (user, 2026-11-14: "нужно только один держать в
   памяти, только проставленный текущим основным в интерфейсе"). Found: speechd keeps every

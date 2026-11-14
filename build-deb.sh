@@ -6,7 +6,7 @@ umask 022
 HERE=$(cd "$(dirname "$0")" && pwd)
 BUILD=${BUILD:-$HERE/_tmp/deb}
 OUT=${OUT:-/home/grigory/Storage/Claude/speech-settings/deb}
-VER=0.1.0-8~local
+VER=0.1.0-11~local
 P=xfce4-speech-settings
 
 mkdir -p "$BUILD" "$OUT"

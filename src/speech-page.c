@@ -37,6 +37,7 @@
 #include "speechd-config.h"
 
 #define SAVE_DELAY_MS 400
+#define LANGUAGE_DELAY_MS 500
 /* time the server needs to restart its modules after a reload */
 #define REFILL_DELAY_MS 1500
 
@@ -189,6 +190,8 @@ typedef struct
   const gchar   *test_text;
 
   guint          save_id;
+  guint          language_id;
+  gchar         *typed_language;
   guint          refill_id;
   guint          fit_id;        /* fits test_view's height to its text */
   /* the server the module list came from (its socket), see
@@ -649,6 +652,7 @@ speech_page_fill_modules (SpeechPage *page)
   gchar           *current;
   gchar           *language;
   gchar           *label;
+  const gchar     *first = NULL;
   gboolean         found = FALSE;
   guint            i;
 
@@ -658,7 +662,6 @@ speech_page_fill_modules (SpeechPage *page)
   language = speech_page_get_language (page);
 
   gtk_combo_box_text_remove_all (combo);
-  gtk_combo_box_text_append (combo, "", _("Automatic"));
 
   for (i = 0; page->modules != NULL && page->modules[i] != NULL; i++)
     {
@@ -666,6 +669,8 @@ speech_page_fill_modules (SpeechPage *page)
 
       if (g_strv_contains (hidden_modules, module))
         continue;
+      if (first == NULL && speech_page_module_speaks (page, module, language))
+        first = module;
       if (g_strcmp0 (module, current) == 0)
         found = TRUE;
       else if (!speech_page_module_speaks (page, module, language))
@@ -686,8 +691,19 @@ speech_page_fill_modules (SpeechPage *page)
   if (current != NULL && *current != '\0' && !found)
     gtk_combo_box_text_append (combo, current, current);
 
-  gtk_combo_box_set_active_id (GTK_COMBO_BOX (combo),
-                               current != NULL ? current : "");
+  /* Without DefaultModule Speech Dispatcher falls back to espeak-ng, which
+   * is hidden here. Take the first synthesizer that speaks the language
+   * instead, also in the configuration, so the dialog shows what is used;
+   * it is saved together with the next change. */
+  if ((current == NULL || *current == '\0') && first != NULL)
+    {
+      g_free (current);
+      current = g_strdup (first);
+      speechd_config_set (page->config, "DefaultModule", current);
+    }
+
+  if (current != NULL)
+    gtk_combo_box_set_active_id (GTK_COMBO_BOX (combo), current);
 
   g_free (language);
   g_free (current);
@@ -1133,25 +1149,49 @@ speech_page_update_test_text (SpeechPage  *page,
 
 
 
-static void
-speech_page_language_changed (GtkComboBox *combo,
-                              SpeechPage  *page)
+/* TRUE for a language code like "ru", "pt-BR" or "zh_Hant": two or three
+ * letters, then parts of letters and digits joined by "-" or "_" */
+static gboolean
+speech_page_is_language_code (const gchar *text)
 {
-  GtkWidget *entry = gtk_bin_get_child (GTK_BIN (combo));
-  gchar     *language;
+  return g_regex_match_simple ("^[A-Za-z]{2,3}([-_][A-Za-z0-9]{1,8})*$",
+                               text, 0, 0);
+}
 
-  if (page->updating)
-    return;
 
-  language = g_strstrip (g_strdup (gtk_entry_get_text (GTK_ENTRY (entry))));
 
-  /* a quote would end the value in speechd.conf */
-  if (*language == '\0' || strchr (language, '"') != NULL)
-    speechd_config_unset (page->config, "DefaultLanguage");
-  else
-    speechd_config_set (page->config, "DefaultLanguage", language);
-  speech_page_queue_save (page);
+/* Writes the typed language to the configuration. Only an empty entry or
+ * a code like "ru" or "pt-BR" is written; mistyped text ("и") keeps the
+ * saved language. */
+static void
+speech_page_store_language (SpeechPage  *page,
+                            const gchar *language)
+{
+  if (*language == '\0')
+    {
+      speechd_config_unset (page->config, "DefaultLanguage");
+      speech_page_queue_save (page);
+    }
+  else if (speech_page_is_language_code (language))
+    {
+      speechd_config_set (page->config, "DefaultLanguage", language);
+      speech_page_queue_save (page);
+    }
+}
 
+
+
+static gboolean
+speech_page_apply_language (gpointer data)
+{
+  SpeechPage *page = data;
+  gchar      *language;
+
+  page->language_id = 0;
+
+  language = page->typed_language;
+  page->typed_language = NULL;
+  speech_page_store_language (page, language);
   speech_page_update_test_text (page, *language != '\0' ? language : DEFAULT_LANGUAGE);
 
   page->updating = TRUE;
@@ -1160,6 +1200,31 @@ speech_page_language_changed (GtkComboBox *combo,
   speech_page_update_voices (page);
 
   g_free (language);
+
+  return G_SOURCE_REMOVE;
+}
+
+
+
+/* Applied once typing pauses: replacing the selected text empties the
+ * entry for a moment, which must not reset the language */
+static void
+speech_page_language_changed (GtkComboBox *combo,
+                              SpeechPage  *page)
+{
+  GtkWidget *entry = gtk_bin_get_child (GTK_BIN (combo));
+
+  if (page->updating)
+    return;
+
+  g_free (page->typed_language);
+  page->typed_language =
+    g_strstrip (g_strdup (gtk_entry_get_text (GTK_ENTRY (entry))));
+
+  if (page->language_id != 0)
+    g_source_remove (page->language_id);
+  page->language_id = g_timeout_add (LANGUAGE_DELAY_MS,
+                                     speech_page_apply_language, page);
 }
 
 
@@ -1428,6 +1493,14 @@ static void
 speech_page_free (gpointer data)
 {
   SpeechPage *page = data;
+
+  /* a language typed just before closing is still saved */
+  if (page->language_id != 0)
+    {
+      g_source_remove (page->language_id);
+      speech_page_store_language (page, page->typed_language);
+    }
+  g_free (page->typed_language);
 
   if (page->save_id != 0)
     {
