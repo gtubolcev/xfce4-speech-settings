@@ -6,7 +6,7 @@ umask 022
 HERE=$(cd "$(dirname "$0")" && pwd)
 BUILD=${BUILD:-$HERE/_tmp/deb}
 OUT=${OUT:-/home/grigory/Storage/Claude/speech-settings/deb}
-VER=0.1.0-11~local
+VER=0.1.0-17~local
 P=xfce4-speech-settings
 
 mkdir -p "$BUILD" "$OUT"
@@ -38,7 +38,7 @@ Version: $VER
 Architecture: amd64
 Maintainer: Grigory Tuboltsev <noreply@localhost>
 Installed-Size: $(du -sk $W/usr | cut -f1)
-Depends: libc6, libglib2.0-0t64, libgtk-3-0t64 (>= 3.24), libxfce4ui-2-0 (>= 4.18), libxfce4util7 (>= 4.18), libspeechd2 (>= 0.11), speech-dispatcher
+Depends: libc6, libglib2.0-0t64, libgtk-3-0t64 (>= 3.24), libxfce4ui-2-0 (>= 4.18), libxfce4util7 (>= 4.18), libspeechd2 (>= 0.11), libsoup-3.0-0, libjson-glib-1.0-0, tar, bzip2, speech-dispatcher
 Section: x11
 Priority: optional
 Description: Speech settings dialog for Xfce

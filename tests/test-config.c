@@ -256,6 +256,100 @@ test_detect_modules (void)
 
 
 
+static void
+test_module_option (void)
+{
+  gchar  *dir = setup_config_home ();
+  gchar  *conf_dir, *path, *contents, *value;
+  const gchar *start =
+    "# free the model after this many seconds\n"
+    "#KokoroIdleTimeout 300\n"
+    "#KokoroPreload 0\n"
+    "KokoroThreads 2\n";
+
+  conf_dir = g_build_filename (dir, "speech-dispatcher", "modules", NULL);
+  g_assert_cmpint (g_mkdir_with_parents (conf_dir, 0700), ==, 0);
+  path = g_build_filename (conf_dir, "kokoro.conf", NULL);
+  g_assert_true (g_file_set_contents (path, start, -1, NULL));
+
+  g_assert_true (speechd_module_has_option ("kokoro", "KokoroPreload"));
+  g_assert_false (speechd_module_has_option ("kokoro", "KokoroBert"));
+  g_assert_null (speechd_module_get_option ("kokoro", "KokoroPreload"));
+
+  /* under the example; numbers unquoted, names quoted */
+  g_assert_true (speechd_module_set_option ("kokoro", "KokoroPreload", "1", NULL));
+  g_assert_true (speechd_module_set_option ("kokoro", "KokoroIdleTimeout", "0", NULL));
+  g_assert_true (speechd_module_set_option ("kokoro", "KokoroVoice", "a b", NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==,
+                   "# free the model after this many seconds\n"
+                   "#KokoroIdleTimeout 300\n"
+                   "KokoroIdleTimeout 0\n"
+                   "#KokoroPreload 0\n"
+                   "KokoroPreload 1\n"
+                   "KokoroThreads 2\n"
+                   "KokoroVoice \"a b\"\n");
+  g_free (contents);
+  value = speechd_module_get_option ("kokoro", "KokoroPreload");
+  g_assert_cmpstr (value, ==, "1");
+  g_free (value);
+
+  /* a new value replaces the line in place */
+  g_assert_true (speechd_module_set_option ("kokoro", "KokoroIdleTimeout", "60", NULL));
+  value = speechd_module_get_option ("kokoro", "KokoroIdleTimeout");
+  g_assert_cmpstr (value, ==, "60");
+  g_free (value);
+
+  /* removing gives back the file as it was */
+  g_assert_true (speechd_module_set_option ("kokoro", "KokoroPreload", NULL, NULL));
+  g_assert_true (speechd_module_set_option ("kokoro", "KokoroIdleTimeout", NULL, NULL));
+  g_assert_true (speechd_module_set_option ("kokoro", "KokoroVoice", NULL, NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==, start);
+  g_free (contents);
+
+  /* bad input is refused, nothing written */
+  g_assert_false (speechd_module_set_option ("kokoro", "KokoroPreload", "x\"y", NULL));
+  g_assert_false (speechd_module_set_option ("kokoro", "KokoroPreload", "1\nZ 2", NULL));
+  g_assert_false (speechd_module_set_option ("../x", "KokoroPreload", "1", NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==, start);
+  g_free (contents);
+
+  g_free (path);
+  g_free (conf_dir);
+  cleanup_config_home (dir);
+}
+
+
+
+/* sd_sherpa-onnx under four names reads the Sherpa or the Piper options */
+static void
+test_module_variant (void)
+{
+  gchar *key;
+
+  g_assert_cmpstr (speechd_module_base ("sherpa-onnx"), ==, "sherpa");
+  g_assert_cmpstr (speechd_module_base ("sherpa-onnx-vulkan-rs"), ==, "sherpa");
+  g_assert_cmpstr (speechd_module_base ("piper-sherpa-onnx"), ==, "piper");
+  g_assert_cmpstr (speechd_module_base ("piper-sherpa-onnx-vulkan-rs"), ==, "piper");
+  g_assert_cmpstr (speechd_module_base ("espeak-ng"), ==, "espeak-ng");
+  g_assert_null (speechd_module_base (NULL));
+  key = speechd_module_option_key ("sherpa-onnx-vulkan-rs", "Preload");
+  g_assert_cmpstr (key, ==, "SherpaPreload");
+  g_free (key);
+  key = speechd_module_option_key ("piper-sherpa-onnx", "Voice");
+  g_assert_cmpstr (key, ==, "PiperVoice");
+  g_free (key);
+  key = speechd_module_option_key ("kokoro", "Voice");
+  g_assert_cmpstr (key, ==, "KokoroVoice");
+  g_free (key);
+  g_assert_cmpint (speechd_module_voice_setting ("piper-sherpa-onnx-vulkan-rs"), ==,
+                   SPEECHD_VOICE_SETTING_MODULE);
+}
+
+
+
 int
 main (int    argc,
       char **argv)
@@ -266,6 +360,8 @@ main (int    argc,
   g_test_add_func ("/config/unset-set", test_unset_set);
   g_test_add_func ("/config/no-user-file", test_no_user_file);
   g_test_add_func ("/config/detect-modules", test_detect_modules);
+  g_test_add_func ("/config/module-option", test_module_option);
+  g_test_add_func ("/config/module-variant", test_module_variant);
 
   return g_test_run ();
 }

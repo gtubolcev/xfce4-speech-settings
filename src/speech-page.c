@@ -35,11 +35,14 @@
 
 #include "speech-page.h"
 #include "speechd-config.h"
+#include "voice-installer.h"
 
 #define SAVE_DELAY_MS 400
 #define LANGUAGE_DELAY_MS 500
 /* time the server needs to restart its modules after a reload */
 #define REFILL_DELAY_MS 1500
+/* the Piper synthesizer; the voices button is shown when it is installed */
+#define PIPER_MODULE_PATH "/usr/lib/speech-dispatcher-modules/sd_piper-sherpa-onnx"
 
 /* Built-in defaults of Speech Dispatcher, used when a key is not set */
 #define DEFAULT_LANGUAGE "en-US"
@@ -171,6 +174,12 @@ typedef struct
   GtkWidget     *voice_combo;
   GtkWidget     *voice_type_label;
   GtkWidget     *voice_type_combo;
+  GtkWidget     *preload_check;
+  GtkWidget     *voices_button;
+  /* the user wants the default synthesizer kept in memory */
+  gboolean       preload;
+  /* the module whose configuration has our Preload line, or NULL */
+  gchar         *preload_module;
   /* the voices of the selected module, NULL-terminated, or NULL */
   SPDVoice     **voices;
   /* the modules of the server, and the languages each one has voices for */
@@ -1019,6 +1028,169 @@ speech_page_update_voices (SpeechPage *page)
 
 
 
+/* "SherpaPreload" for "sherpa-onnx", "PiperPreload" for "piper-sherpa-onnx" */
+static gchar *
+speech_page_module_key (const gchar *module,
+                        const gchar *suffix)
+{
+  return speechd_module_option_key (module, suffix);
+}
+
+
+
+/* Sets option @key of @module to @value (NULL removes it) unless it has it
+ * already; the server rereads module configurations on the next save. */
+static void
+speech_page_set_module_option (SpeechPage  *page,
+                               const gchar *module,
+                               const gchar *key,
+                               const gchar *value)
+{
+  gchar  *old = speechd_module_get_option (module, key);
+  GError *error = NULL;
+  gchar  *message;
+
+  if (g_strcmp0 (old, value) != 0)
+    {
+      if (speechd_module_set_option (module, key, value, &error))
+        {
+          page->reload_pending = TRUE;
+          speech_page_queue_save (page);
+        }
+      else
+        {
+          message = g_strdup_printf (_("Failed to save the setting: %s"),
+                                     error->message);
+          speech_page_show_message (page, GTK_MESSAGE_ERROR, message);
+          g_free (message);
+          g_error_free (error);
+        }
+    }
+  g_free (old);
+}
+
+
+
+/* Our modules load their model with the first message and free it after
+ * some minutes without speech. "<Module>Preload" loads it when the module
+ * starts, "<Module>IdleTimeout 0" keeps it. Only the default synthesizer
+ * gets them: the lines move with it and go when the check box is off. */
+static void
+speech_page_sync_preload (SpeechPage *page)
+{
+  gchar   *module = speech_page_get_module (page);
+  gchar   *key = NULL;
+  gboolean supported = FALSE;
+
+  if (module != NULL && *module != '\0')
+    {
+      key = speech_page_module_key (module, "Preload");
+      supported = speechd_module_has_option (module, key);
+    }
+
+  if (page->preload_module != NULL
+      && (!page->preload || !supported
+          || strcmp (page->preload_module, module) != 0))
+    {
+      gchar *old_key = speech_page_module_key (page->preload_module, "Preload");
+      gchar *idle_key = speech_page_module_key (page->preload_module,
+                                                "IdleTimeout");
+
+      speech_page_set_module_option (page, page->preload_module, old_key, NULL);
+      speech_page_set_module_option (page, page->preload_module, idle_key, NULL);
+      g_free (idle_key);
+      g_free (old_key);
+      g_clear_pointer (&page->preload_module, g_free);
+    }
+
+  if (page->preload && supported)
+    {
+      gchar *idle_key = speech_page_module_key (module, "IdleTimeout");
+      gchar *value = NULL;
+
+      /* sd_sherpa-onnx has many models and preloads the one of a voice */
+      if (strcmp (speechd_module_base (module), "sherpa") == 0
+          || strcmp (speechd_module_base (module), "piper") == 0)
+        {
+          gchar *language = speech_page_get_language (page);
+          gchar *type = speech_page_get_voice_type (page);
+
+          value = speechd_module_get_voice (module, language, type);
+          if (value == NULL)
+            value = g_strdup (gtk_combo_box_get_active_id (
+                                GTK_COMBO_BOX (page->voice_combo)));
+          g_free (type);
+          g_free (language);
+        }
+      else
+        value = g_strdup ("1");
+
+      if (value != NULL)
+        {
+          speech_page_set_module_option (page, module, key, value);
+          speech_page_set_module_option (page, module, idle_key, "0");
+          g_free (page->preload_module);
+          page->preload_module = g_strdup (module);
+        }
+      g_free (value);
+      g_free (idle_key);
+    }
+
+  if (page->preload_check != NULL)
+    {
+      gboolean updating = page->updating;
+
+      page->updating = TRUE;
+      gtk_widget_set_sensitive (page->preload_check, supported);
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (page->preload_check),
+                                    page->preload && supported);
+      page->updating = updating;
+    }
+
+  g_free (key);
+  g_free (module);
+}
+
+
+
+static void
+speech_page_preload_toggled (GtkToggleButton *button,
+                             SpeechPage      *page)
+{
+  if (page->updating)
+    return;
+
+  page->preload = gtk_toggle_button_get_active (button);
+  speech_page_sync_preload (page);
+}
+
+
+
+/* Whether the user's configuration of the default synthesizer preloads it */
+static void
+speech_page_load_preload (SpeechPage *page)
+{
+  gchar *module = speech_page_get_module (page);
+  gchar *key, *value;
+
+  if (module == NULL || *module == '\0')
+    {
+      g_free (module);
+      return;
+    }
+
+  key = speech_page_module_key (module, "Preload");
+  value = speechd_module_get_option (module, key);
+  page->preload = value != NULL && *value != '\0' && strcmp (value, "0") != 0;
+  if (page->preload)
+    page->preload_module = g_strdup (module);
+  g_free (value);
+  g_free (key);
+  g_free (module);
+}
+
+
+
 static void
 speech_page_voice_changed (GtkComboBox *combo,
                            SpeechPage  *page)
@@ -1054,6 +1226,7 @@ speech_page_voice_changed (GtkComboBox *combo,
     {
       page->reload_pending = TRUE;
       speech_page_queue_save (page);
+      speech_page_sync_preload (page);
     }
 
   g_free (type);
@@ -1080,6 +1253,7 @@ speech_page_module_changed (GtkComboBox *combo,
 
   speech_page_load_voices (page);
   speech_page_update_voices (page);
+  speech_page_sync_preload (page);
 }
 
 
@@ -1198,6 +1372,7 @@ speech_page_apply_language (gpointer data)
   speech_page_fill_modules (page);
   page->updating = FALSE;
   speech_page_update_voices (page);
+  speech_page_sync_preload (page);
 
   g_free (language);
 
@@ -1356,6 +1531,36 @@ speech_page_hierarchy_changed (GtkWidget *box,
 
 
 
+/* Voices were installed or removed: the server reads them on a reload */
+static void
+speech_page_voices_changed (gpointer data)
+{
+  SpeechPage *page = data;
+
+  page->reload_pending = TRUE;
+  speech_page_queue_save (page);
+  if (page->refill_id != 0)
+    g_source_remove (page->refill_id);
+  page->refill_id = g_timeout_add (SAVE_DELAY_MS + REFILL_DELAY_MS,
+                                   speech_page_refill_modules, page);
+}
+
+
+
+static void
+speech_page_voices_clicked (GtkButton  *button,
+                            SpeechPage *page)
+{
+  GtkWidget *toplevel = gtk_widget_get_toplevel (GTK_WIDGET (button));
+  gchar     *language = speech_page_get_language (page);
+
+  voice_installer_show (GTK_IS_WINDOW (toplevel) ? GTK_WINDOW (toplevel) : NULL,
+                        language, speech_page_voices_changed, page);
+  g_free (language);
+}
+
+
+
 /* A window does not get smaller by itself when a child is hidden */
 static void
 speech_page_hide_modules_bar (SpeechPage *page)
@@ -1501,6 +1706,7 @@ speech_page_free (gpointer data)
       speech_page_store_language (page, page->typed_language);
     }
   g_free (page->typed_language);
+  g_free (page->preload_module);
 
   if (page->save_id != 0)
     {
@@ -1838,6 +2044,32 @@ speech_page_new (void)
   speech_page_bind_choice (page, page->voice_type_combo, "DefaultVoiceType",
                            voice_types, G_N_ELEMENTS (voice_types), "MALE1");
   speech_page_update_voices (page);
+
+  page->preload_check =
+    gtk_check_button_new_with_mnemonic (_("_Keep the synthesizer loaded"));
+  gtk_widget_set_tooltip_text (page->preload_check,
+                               _("Load the synthesizer when the speech "
+                                 "server starts and keep it in memory: the "
+                                 "first message is spoken sooner. Otherwise "
+                                 "it is loaded with the first message and "
+                                 "freed after five minutes without speech."));
+  gtk_grid_attach (GTK_GRID (grid), page->preload_check, 1, 4, 1, 1);
+  speech_page_load_preload (page);
+  speech_page_sync_preload (page);
+  g_signal_connect (page->preload_check, "toggled",
+                    G_CALLBACK (speech_page_preload_toggled), page);
+
+  page->voices_button = gtk_button_new_with_mnemonic (_("_Piper Voices…"));
+  gtk_widget_set_tooltip_text (page->voices_button,
+                               _("Download more voices for the synthesizer "
+                                 "piper-sherpa-onnx"));
+  gtk_widget_set_halign (page->voices_button, GTK_ALIGN_START);
+  gtk_grid_attach (GTK_GRID (grid), page->voices_button, 1, 5, 1, 1);
+  gtk_widget_set_no_show_all (page->voices_button, TRUE);
+  gtk_widget_set_visible (page->voices_button,
+                          g_file_test (PIPER_MODULE_PATH, G_FILE_TEST_EXISTS));
+  g_signal_connect (page->voices_button, "clicked",
+                    G_CALLBACK (speech_page_voices_clicked), page);
 
   /* rate, pitch, volume: a column right of language, synthesizer, voice */
   page->rate_spin = speech_page_bind_percent (page, "DefaultRate", 0);

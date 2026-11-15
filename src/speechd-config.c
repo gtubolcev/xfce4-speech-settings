@@ -851,10 +851,11 @@ module_config_path (const gchar *module,
   return path;
 }
 
-/* The lines of the module configuration that Speech Dispatcher reads: the
- * user's copy, else the system one. NULL when there is none. */
+/* The lines of the user's (@user) or the system copy of the module
+ * configuration, NULL when there is none */
 static gchar **
-module_config_read (const gchar *module)
+module_config_read_copy (const gchar *module,
+                         gboolean     user)
 {
   gchar *contents = NULL;
   gchar *path;
@@ -864,14 +865,9 @@ module_config_read (const gchar *module)
   if (module == NULL || *module == '\0' || strchr (module, '/') != NULL)
     return NULL;
 
-  path = module_config_path (module, TRUE);
+  path = module_config_path (module, user);
   if (!g_file_get_contents (path, &contents, NULL, NULL))
-    {
-      g_free (path);
-      path = module_config_path (module, FALSE);
-      if (!g_file_get_contents (path, &contents, NULL, NULL))
-        contents = NULL;
-    }
+    contents = NULL;
   g_free (path);
 
   if (contents == NULL)
@@ -888,6 +884,55 @@ module_config_read (const gchar *module)
 
   return lines;
 }
+
+/* The lines of the module configuration that Speech Dispatcher reads: the
+ * user's copy, else the system one. NULL when there is none. */
+static gchar **
+module_config_read (const gchar *module)
+{
+  gchar **lines = module_config_read_copy (module, TRUE);
+
+  return lines != NULL ? lines : module_config_read_copy (module, FALSE);
+}
+
+/* Writes @lines as the user's copy of the module configuration */
+static gboolean
+module_config_write (const gchar *module,
+                     GPtrArray   *lines,
+                     GError     **error)
+{
+  GString *contents = g_string_new (NULL);
+  gchar   *path, *dir;
+  gboolean ok;
+  guint    i;
+
+  for (i = 0; i < lines->len; i++)
+    {
+      g_string_append (contents, g_ptr_array_index (lines, i));
+      g_string_append_c (contents, '\n');
+    }
+
+  path = module_config_path (module, TRUE);
+  dir = g_path_get_dirname (path);
+  if (g_mkdir_with_parents (dir, 0700) != 0)
+    {
+      gint errsv = errno;
+
+      g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errsv),
+                   "%s: %s", dir, g_strerror (errsv));
+      ok = FALSE;
+    }
+  else
+    ok = g_file_set_contents (path, contents->str, contents->len, error);
+
+  g_free (dir);
+  g_free (path);
+  g_string_free (contents, TRUE);
+
+  return ok;
+}
+
+
 
 /* The values of line @line when its key is @key, else NULL */
 static gchar **
@@ -906,19 +951,50 @@ module_line_values (const gchar *line,
   return values;
 }
 
-/* "Zonos3Voice" for "zonos3": the setting of our own modules */
-static gchar *
-module_voice_key (const gchar *module)
+/* our modules, which read "<Module>Voice" ("zonos3" is built by hand) */
+static const gchar *const own_modules[] = { "zonos3", "sherpa", "piper", "vosk", "kokoro", "teratts", NULL };
+
+/* Synthesizer names of our modules and the option prefix each reads:
+ * sd_sherpa-onnx is installed under four names, with a configuration each */
+static const gchar *const module_variants[][2] = {
+  { "sherpa-onnx", "sherpa" },
+  { "sherpa-onnx-vulkan-rs", "sherpa" },
+  { "piper-sherpa-onnx", "piper" },
+  { "piper-sherpa-onnx-vulkan-rs", "piper" },
+};
+
+/* The option prefix of @module: "sherpa" for "sherpa-onnx-vulkan-rs",
+ * "piper" for "piper-sherpa-onnx"; @module itself for the others */
+const gchar *
+speechd_module_base (const gchar *module)
 {
-  gchar *key = g_strconcat (module, "Voice", NULL);
+  guint i;
+
+  for (i = 0; module != NULL && i < G_N_ELEMENTS (module_variants); i++)
+    if (strcmp (module, module_variants[i][0]) == 0)
+      return module_variants[i][1];
+
+  return module;
+}
+
+/* "<Module><suffix>", the name of an option of @module: "SherpaVoice" for
+ * "sherpa-onnx" and "sherpa-onnx-vulkan-rs" */
+gchar *
+speechd_module_option_key (const gchar *module,
+                           const gchar *suffix)
+{
+  gchar *key = g_strconcat (speechd_module_base (module), suffix, NULL);
 
   key[0] = g_ascii_toupper (key[0]);
 
   return key;
 }
 
-/* our modules, which read "<Module>Voice", also from older configurations */
-static const gchar *const own_modules[] = { "zonos3", "sherpa", "vosk", "kokoro", "teratts", NULL };
+static gchar *
+module_voice_key (const gchar *module)
+{
+  return speechd_module_option_key (module, "Voice");
+}
 
 SpeechdVoiceSetting
 speechd_module_voice_setting (const gchar *module)
@@ -927,7 +1003,7 @@ speechd_module_voice_setting (const gchar *module)
   SpeechdVoiceSetting setting = SPEECHD_VOICE_SETTING_NONE;
   guint               i;
 
-  if (module != NULL && g_strv_contains (own_modules, module))
+  if (module != NULL && g_strv_contains (own_modules, speechd_module_base (module)))
     return SPEECHD_VOICE_SETTING_MODULE;
 
   lines = module_config_read (module);
@@ -1043,10 +1119,8 @@ speechd_module_set_voice (const gchar *module,
   SpeechdVoiceSetting setting = speechd_module_voice_setting (module);
   gchar             **lines;
   GPtrArray          *out;
-  GString            *contents;
   gchar              *voice_key;
   gchar              *new_line;
-  gchar              *path, *dir;
   gint                last = -1;
   guint               i;
   gboolean            ok;
@@ -1111,33 +1185,170 @@ speechd_module_set_voice (const gchar *module,
   else
     g_ptr_array_insert (out, last + 1, new_line);
 
-  contents = g_string_new (NULL);
-  for (i = 0; i < out->len; i++)
-    {
-      g_string_append (contents, g_ptr_array_index (out, i));
-      g_string_append_c (contents, '\n');
-    }
-
-  path = module_config_path (module, TRUE);
-  dir = g_path_get_dirname (path);
-  if (g_mkdir_with_parents (dir, 0700) != 0)
-    {
-      gint errsv = errno;
-
-      g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errsv),
-                   "%s: %s", dir, g_strerror (errsv));
-      ok = FALSE;
-    }
-  else
-    ok = g_file_set_contents (path, contents->str, contents->len, error);
-
-  g_free (dir);
-  g_free (path);
-  g_string_free (contents, TRUE);
+  ok = module_config_write (module, out, error);
   g_ptr_array_free (out, TRUE);
   g_strfreev (lines);
   g_free (new_line);
   g_free (voice_key);
+
+  return ok;
+}
+
+
+
+static gboolean
+lines_have_option (gchar      **lines,
+                   const gchar *key)
+{
+  gboolean found = FALSE;
+  guint    i;
+
+  for (i = 0; lines != NULL && lines[i] != NULL && !found; i++)
+    {
+      gchar *k = NULL;
+
+      if (parse_option_line (lines[i], FALSE, &k) != NULL
+          || parse_option_line (lines[i], TRUE, &k) != NULL)
+        found = g_ascii_strcasecmp (k, key) == 0;
+      g_free (k);
+    }
+
+  return found;
+}
+
+/* Whether the module configuration knows option @key, also as a
+ * commented-out example; the system copy counts too, as a user's copy
+ * made before the option was added does not mention it */
+gboolean
+speechd_module_has_option (const gchar *module,
+                           const gchar *key)
+{
+  gchar  **lines = module_config_read_copy (module, TRUE);
+  gboolean found = lines_have_option (lines, key);
+
+  g_strfreev (lines);
+  if (!found)
+    {
+      lines = module_config_read_copy (module, FALSE);
+      found = lines_have_option (lines, key);
+      g_strfreev (lines);
+    }
+
+  return found;
+}
+
+
+
+/* The value of the last active line of option @key in the module
+ * configuration, or NULL */
+gchar *
+speechd_module_get_option (const gchar *module,
+                           const gchar *key)
+{
+  gchar **lines = module_config_read (module);
+  gchar  *value = NULL;
+  guint   i;
+
+  for (i = 0; lines != NULL && lines[i] != NULL; i++)
+    {
+      gchar **values = module_line_values (lines[i], key);
+
+      if (values != NULL && values[0] != NULL)
+        {
+          g_free (value);
+          value = g_strdup (values[0]);
+        }
+      g_strfreev (values);
+    }
+  g_strfreev (lines);
+
+  return value;
+}
+
+
+
+/* Sets option @key of the module to @value (quoted unless a number) in the user's copy of
+ * its configuration; NULL removes the active lines. The new line replaces
+ * the first active one, else follows the commented-out example, else ends
+ * the file. The server has to be reloaded afterwards. */
+gboolean
+speechd_module_set_option (const gchar *module,
+                           const gchar *key,
+                           const gchar *value,
+                           GError     **error)
+{
+  gchar    **lines;
+  GPtrArray *out;
+  gchar     *new_line = NULL;
+  gint       at = -1, example = -1;
+  guint      i;
+  gboolean   changed = FALSE;
+  gboolean   ok = TRUE;
+
+  if (module == NULL || *module == '\0' || strchr (module, '/') != NULL
+      || (value != NULL && (strchr (value, '"') != NULL
+                            || strchr (value, '\n') != NULL)))
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
+                   "%s: invalid value", key);
+      return FALSE;
+    }
+  if (value != NULL && *value != '\0'
+      && value[strspn (value, "0123456789")] == '\0')
+    new_line = g_strdup_printf ("%s %s", key, value);
+  else if (value != NULL)
+    new_line = g_strdup_printf ("%s \"%s\"", key, value);
+
+  lines = module_config_read (module);
+  out = g_ptr_array_new ();
+  for (i = 0; lines != NULL && lines[i] != NULL; i++)
+    {
+      gchar *k = NULL;
+
+      if (parse_option_line (lines[i], FALSE, &k) != NULL
+          && g_ascii_strcasecmp (k, key) == 0)
+        {
+          /* an identical line stays, so an unchanged file is not written */
+          if (at < 0 && new_line != NULL && strcmp (lines[i], new_line) == 0)
+            {
+              at = out->len;
+              g_ptr_array_add (out, lines[i]);
+            }
+          else
+            {
+              if (at < 0)
+                at = out->len;
+              changed = TRUE;
+            }
+        }
+      else
+        {
+          gchar *c = NULL;
+
+          if (parse_option_line (lines[i], TRUE, &c) != NULL
+              && g_ascii_strcasecmp (c, key) == 0)
+            example = out->len;
+          g_free (c);
+          g_ptr_array_add (out, lines[i]);
+        }
+      g_free (k);
+    }
+
+  if (new_line != NULL
+      && (at < 0 || strcmp (g_ptr_array_index (out, at), new_line) != 0))
+    {
+      if (at < 0)
+        at = example >= 0 ? example + 1 : (gint) out->len;
+      g_ptr_array_insert (out, at, new_line);
+      changed = TRUE;
+    }
+
+  if (changed)
+    ok = module_config_write (module, out, error);
+
+  g_ptr_array_free (out, TRUE);
+  g_strfreev (lines);
+  g_free (new_line);
 
   return ok;
 }

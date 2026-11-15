@@ -75,6 +75,18 @@ gboolean       speechd_module_set_voice  (const gchar   *module,
                                           const gchar   *voice,
                                           GError       **error);
 
+const gchar   *speechd_module_base (const gchar *module);
+gchar         *speechd_module_option_key (const gchar *module,
+                                          const gchar *suffix);
+gboolean       speechd_module_has_option (const gchar   *module,
+                                          const gchar   *key);
+gchar         *speechd_module_get_option (const gchar   *module,
+                                          const gchar   *key);
+gboolean       speechd_module_set_option (const gchar   *module,
+                                          const gchar   *key,
+                                          const gchar   *value,
+                                          GError       **error);
+
 G_END_DECLS
 
 #endif /* !__SPEECHD_CONFIG_H__ */
