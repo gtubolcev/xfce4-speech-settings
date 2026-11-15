@@ -24,6 +24,9 @@ localedir = prefix / get_option('localedir')
 gtk = dependency('gtk+-3.0', version: '>= 3.24.0')
 speechd = dependency('speech-dispatcher', version: '>= 0.11.0')
 gtk_x11 = dependency('gtk+-x11-3.0', required: get_option('x11'))
+# the Piper voice downloader
+soup = dependency('libsoup-3.0', version: '>= 3.0')
+json_glib = dependency('json-glib-1.0', version: '>= 1.6')
 
 conf = configuration_data()
 conf.set_quoted('PACKAGE', app_name)

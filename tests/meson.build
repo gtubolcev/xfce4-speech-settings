@@ -6,3 +6,12 @@ test_config = executable(
   dependencies: [dependency('gio-2.0')],
 )
 test('config', test_config)
+
+test_voice_installer = executable(
+  'test-voice-installer',
+  'test-voice-installer.c',
+  '../src/voice-installer.c',
+  include_directories: include_directories('..'),
+  dependencies: [gtk, soup, json_glib] + xfce_deps,
+)
+test('voice-installer', test_voice_installer)
