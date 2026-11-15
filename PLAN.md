@@ -40,10 +40,17 @@ Three goals, in this order:
 2. **More voices**, en first, then the main European languages, then the former USSR.
    Now: Supertonic 3 (31 languages × the same 10 voices; has en, most EU, uk, lt, lv, et);
    missing everywhere: be, kk, ka, hy, az, uz, ky, tg; no, is, ca, sr, mk, sq, ga, cy, eu.
-   - espeak-ng phonemizer in sd_sherpa → Piper (40+ languages, hundreds of voices,
-     licence per voice), Kokoro v1.0 (en ~28 voices, es, fr, it, pt; Apache), Kitten
-     (en, 8). No separate sd_piper: the model stays loaded, and piper1-gpl is GPL-3.
-     The built sd_sherpa becomes GPL-3 through libespeak-ng (sources stay MIT).
+   - espeak-ng phonemizer (libespeak-ng → GenerationConfig.phoneme_codepoints;
+     sherpa-onnx 2.x has no built-in one) shared by sd_sherpa and a new sd_piper:
+     Kokoro v1.0 (en ~28 voices, es, fr, it, pt; Apache) and Kitten (en, 8) in
+     sd_sherpa; Piper (40+ languages, hundreds of voices, licence per voice) as its
+     own package speech-dispatcher-piper (the user, 2026-11-14: "Piper хотелось бы
+     иметь отдельным пакетом, как все остальные"), on the sherpa-onnx runtime, not
+     piper1-gpl. Replaces Pied and the sd_generic piper-generic.conf (a process and
+     a model load per message, sox for rate/pitch, no volume, a downloaded binary).
+     Voices: a few per language as packages within the PPA quota, the rest through
+     a downloader in the settings app (Pied's other job). NC voices: downloader only.
+     The built modules become GPL-3 through libespeak-ng (sources stay MIT).
    - RHVoice voices from multiverse (uk, ky, tt, uz, pl, cs, sk, mk, sq, eo, pt-br):
      check that the GUI shows them.
    - Silero v3 / v4_cyrillic (kk, ky, uz, tt, ba, udm, xal, …; en 118 speakers, de,
@@ -191,6 +198,29 @@ Three goals, in this order:
 - README.
 
 ## Later
+- **Russian text preparation for all modules** (user, 2026-11-14). Supertonic reads
+  "в 2026 году" as "в две тысячи двадцать шесть году", MMS drops digits and Latin words,
+  Piper (espeak-ng) reads numbers without case and English words with English phonemes.
+  Needed: numbers in the right case and gender (years, dates, quantities after
+  prepositions), Latin words in Russian text (a dictionary of common words + English
+  pronunciation, e.g. CMUdict), abbreviations, Roman numerals. Two ways: (a) rule FSTs
+  for sherpa-onnx (`rule_fsts`, OpenFst format; maybe NeMo text processing's Russian
+  grammars, Apache-2.0, compiled to that format; patch sherpa if needed) — only sd_sherpa;
+  (b) our own library in linux-tts/common/ run before every engine. Order (user,
+  2026-11-14): first (a), the FST rules for sherpa; once they exist, (b) as a separate
+  library for the other modules (it can reuse the same FSTs). Before writing:
+  1. search the Telegram group «Распознавание и синтез речи» (t.me/speech_recognition_ru)
+     for existing solutions (normalisation, числительные, падежи, RUNorm, NeMo);
+  2. check NeMo text processing ru, RUNorm (author of ruaccent; licence, size), num2words;
+  3. a set of hard phrases to compare them; then choose.
+  Rules should cover most cases; a small model only for the rest, not an LLM.
+- **Heavy models: outside this project, maybe one trial module later** (user,
+  2026-11-14). Voice LLMs and omni models (Qwen3-TTS, CosyVoice3, Higgs, VibeVoice,
+  OmniVoice, Haru-4B…) need an NVIDIA RTX 4090-class card. Their users also need `sd_`
+  modules to use them under Linux, but that is a separate project. Possible trial: one
+  module for one large model that prepares the text itself — homographs, stress,
+  emotions, voice cloning. Candidates and notes: linux-tts/RESEARCH-tts-engines.md,
+  "Heavy". On mikhail-desktop (GTX 1060) only small or quantised models would fit.
 - **Capital letters: later, not a main feature** (user, 2026-11-12). Options: a hint in the
   window; a test through SPD_SPELL; "заглавная" before single capital letters in sd_sherpa
   and sd_vosk (they ignore CAP_LET_RECOGN now).
@@ -283,6 +313,88 @@ Three goals, in this order:
   Quick test first: build in docker, `onnx-vulkan run` on ru_RU-dmitri-medium on the Vega 8.
   Decide after the ZONOS3 ggml-Vulkan result. (Result 2026-11-11: ZONOS3 on the Vega 8 via
   ggml Vulkan is RTF 0.55 vs 0.96 on the CPU, CPU load ÷12, see RESEARCH, so GPU is worth it.)
+  **Tested 2026-11-14** (onnx-vulkan-rs 8625ef9, ORT 1.29.0, docker; scripts in
+  /home/grigory/Storage/Claude/onnx-vulkan, built on mikhail-desktop): ru_RU-dmitri-medium,
+  all 2371 nodes on Vulkan, output equal to the CPU (atol 1e-2, noise off). Per phrase
+  (195 phonemes): Vega 8 (RADV) CPU EP 245–440 ms wall / ~1.9 s CPU time (all threads),
+  Vulkan 240–370 ms wall / ~0.05 s CPU time: same speed, CPU load ÷40. GTX 1060: CPU 138 ms,
+  Vulkan 124 ms. Intel HD 620 (Kaby Lake GT2, ANV, 4-thread i5): CPU EP ~190 ms / ~0.36 s CPU
+  time, Vulkan 450–545 ms / ~0.1 s CPU time: 2.7× slower but still RTF ~0.23 for 2.26 s of
+  audio, CPU load ÷3.5; so on old Intel iGPUs the CPU path stays the default. `optimize`: no tunable nodes, no gain. en_US-ryan-high from Pied fails
+  (an If node, "attribute then_branch of type Graph"); the authors used a re-export.
+  To use it: sherpa-onnx must load the plugin EP (RegisterExecutionProviderLibrary +
+  AppendExecutionProvider_V2), our own ORT ≥1.23 (Ubuntu's is 1.23.2, the project pins
+  1.29), Rust in the build; the bundle is prepared for fixed phoneme counts, so a real
+  module needs length buckets (pad + input_lengths) or per-length compilation. One author,
+  started 2026-10, not packaged anywhere. Also has a standalone pure-Rust engine (no ORT).
+- **ggml instead of ONNX for the GPU (decided 2026-11-14).** N. Shmyrev advised the user
+  privately to drop ONNX and write everything "in the .cpp spirit", i.e. on ggml. User's
+  decision:
+  1. The ONNX modules stay as they are (sd_sherpa-onnx, sd_piper-sherpa-onnx, Kokoro,
+     TeraTTS, Vosk): they work on the CPU and give hundreds of voices for free.
+  2. The onnx-vulkan-rs path above is frozen: the sherpa-onnx-vulkan-rs /
+     piper-sherpa-onnx-vulkan-rs names stay as built, no further work on the plugin
+     (one author, own ORT 1.29, no Supertonic/Pocket). The GPU path goes through ggml.
+  3. Pilot: one model on ggml, Kokoro through kokoro.cpp (simonfxr, GGUF; see RESEARCH).
+     Measure CPU vs onnxruntime, Vulkan on the Vega 8, .121 (HD 620) and the GTX 1060;
+     peak RSS, quantised (Q8/Q4) vs f16. Decide from the numbers whether to port
+     Piper/VITS and others.
+  4. Waiting for Shmyrev's reply on which ggml TTS projects he means; start with those.
+  5. **audio.cpp (2026-11-15, user: "Да") — main candidate for the ggml path**, ahead of
+     kokoro.cpp: github.com/0xShug0/audio.cpp, Apache-2.0, one C++/ggml engine with a
+     stable C API (libaudiocpp.so, include/audiocpp.h: opaque handles, ABI version,
+     sessions, streaming) and many TTS/ASR/VAD models. Steps: build from source on
+     mikhail (CPU + Vulkan); benchmark kokoro and qwen3_tts (ru) to files only (RTF, peak
+     RSS) on the CPU, the GTX 1060 (Vulkan) and .121 (HD 620); then maybe an
+     sd_audiocpp module. Packaging: own package with its vendored ggml etc. in a private
+     dir (/usr/lib/<triplet>/audiocpp/, RUNPATH), never clashing with the distro libggml0.
+  Own library versions (user, 2026-11-15): "Мы можем собирать самую свежую версию, просто
+  ставить её независимо" — this applies to onnxruntime too, which lifts the 2026-11-10
+  "Ubuntu's libonnxruntime only" decision for future builds (private dir + RUNPATH, no
+  Provides/Conflicts with distro packages).
+  Why ggml: Ubuntu 26.04 ships it (libggml0 0.9.11, libggml0-backend-vulkan, HIP, BLAS), so
+  no private runtime; its Vulkan backend is mature (llama.cpp, whisper.cpp; ZONOS3 on the
+  Vega 8, see RESEARCH); quantisation for weak machines; small plain C/C++. Cost: every
+  model needs its own port; few TTS ports exist (kokoro.cpp, TTS.cpp proof of concept).
+  The CUDA variant below becomes a ggml backend package rather than an ORT build, if the
+  pilot works out.
+- **CUDA variant** (user, 2026-11-14: "наверное, нужен вариант для cuda?"): synthesizers
+  `sherpa-onnx-cuda` / `piper-sherpa-onnx-cuda`, the same sd_sherpa-onnx with Provider
+  "cuda" (sherpa-onnx supports it upstream). Unlike Vulkan, CUDA runs every graph, so
+  Supertonic and Pocket would run on the card too. Needs our private ORT 1.29 built with
+  `--use_cuda` (the CUDA EP is a separate libonnxruntime_providers_cuda.so, loaded through
+  providers_shared) as a package `onnxruntime-ep-cuda`, depending on CUDA 12 and cuDNN
+  (multiverse / NVIDIA repo, ~1–2 GB). First measure on mikhail-desktop's GTX 1060:
+  Supertonic CPU vs CUDA; Piper there gains little (CPU 138 ms, Vulkan 124 ms). Local /
+  GitHub first, the PPA only if multiverse dependencies are fine there. The GTX 1060
+  (Pascal) is only served by older CUDA (CUDA 13 dropped Pascal), but is fine for the
+  measurement (user: "не к спеху").
+- **Old laptops: CPU and RAM** (user, 2026-11-14: "всё это обсуждение в список дальнейших
+  оптимизаций"; freeing RAM matters on old laptops). Measure each on .121 (HD 620, 4 threads,
+  7 GB) and the Vega laptop: peak RSS + CPU time + wall per phrase, before choosing defaults.
+  - ORT thread spinning off (`session.intra_op.allow_spinning=0`): the Vega CPU EP used ~1.9 s
+    CPU time for 0.25–0.44 s wall, i.e. mostly idle spinning. One setting, try first.
+  - Fewer threads (1–2): less total work, the desktop stays responsive.
+  - Module priority: `nice`/`SCHED_IDLE` for the synthesis thread.
+  - ORT memory: `enable_cpu_mem_arena=0`, `enable_mem_pattern=0` (lower peak RSS, buffers
+    not kept between phrases).
+  - mmap of the weights where the engine allows it (pages reclaimable, not swapped).
+  - int8 models: weights ¼ of fp32. Costs: some quality (hiss/buzz, mostly in the VITS/HiFi-GAN
+    decoder; Kokoro int8 slightly duller), and on CPUs without VNNI (Kaby Lake, Zen 1) quantized
+    convolutions can be *slower* than fp32; only MatMul-heavy parts gain. Listen + measure.
+  - Light models as the default on weak machines (Piper low/medium, Kitten TTS nano).
+  - A disk cache of frequent phrases (menu items, notifications) in the modules.
+  - XNNPACK EP (in sherpa-onnx) vs the default CPU EP.
+  - Idle unload (done, item 2: 5 minutes, only the main synthesizer may stay).
+  - GPU: on integrated graphics Vulkan only relieves the CPU, RAM stays the same (shared memory,
+    plus driver overhead); Vega 8 ÷40 CPU, same speed; HD 620 2.7× slower, ÷3.5 CPU. So CPU
+    stays the default on old Intel, Vulkan is an option (check box "Use the graphics card",
+    `<Module>Gpu`, 0.1.0-13; today only sd_zonos3 has it).
+  - Other GPU routes to check later: ORT **WebGPU EP** (official, Vulkan via Dawn on Linux,
+    Intel contributes); **OpenVINO EP** (sherpa-onnx has `provider=openvino`, documented for
+    KWS/VAD on NPUs, needs an ORT built with OpenVINO; Gen9 iGPUs need the frozen
+    intel-compute-runtime legacy1 branch, so little gain on Kaby Lake; worth it from Xe and on NPUs);
+    onnx-vulkan-rs (see the GPU item) for an experimental `SherpaGpu` in sd_sherpa/sd_piper.
 - **Wide engine survey** (user, 2026-11-11), after sd_vosk and the remaining candidates of this
   list: every TTS/STT system mentioned in the Telegram community "Распознавание и синтез речи"
   (Shmyrev's group), one table: licence, languages (ru/en), runtime (ONNX / ggml / PyTorch),
