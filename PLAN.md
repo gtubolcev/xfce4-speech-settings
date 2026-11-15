@@ -348,6 +348,14 @@ Three goals, in this order:
      RSS) on the CPU, the GTX 1060 (Vulkan) and .121 (HD 620); then maybe an
      sd_audiocpp module. Packaging: own package with its vendored ggml etc. in a private
      dir (/usr/lib/<triplet>/audiocpp/, RUNPATH), never clashing with the distro libggml0.
+     First results (2026-11-15, RESEARCH "audio.cpp"): Piper voices convert to its
+     piper_tts and run on Vulkan (GTX 1060) at RTF ~0.04 incl. load — the one real GPU
+     win; on the CPU Piper stays on sherpa-onnx. qwen3_tts / cosyvoice3 form a heavy tier
+     (RTF 1.2–1.9 on a 1060). Mali (phones/SBCs) is not our target; a fallback to ONNX /
+     onnx-vulkan-rs for it can come later (user, 2026-11-15).
+     Compare with CrispASR (MIT, one ggml binary, 69 TTS backends, C-ABI, built-in
+     Russian G2P with an 813k stress dictionary) before choosing the engine for
+     sd_audiocpp / sd_crispasr (user: "Да", 2026-11-15).
   Own library versions (user, 2026-11-15): "Мы можем собирать самую свежую версию, просто
   ставить её независимо" — this applies to onnxruntime too, which lifts the 2026-11-10
   "Ubuntu's libonnxruntime only" decision for future builds (private dir + RUNPATH, no
