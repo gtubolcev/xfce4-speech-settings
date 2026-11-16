@@ -21,6 +21,26 @@
   `Zonos3Voice "<lang>" "<voice>"`. Native modules (espeak-ng, rhvoice): list greyed out, the
   "Voice type" row appears instead. The test speaks with the chosen voice.
 
+## Stages (user, 2026-11-16) — overrides the order below
+**Stage 1 — a decent working TTS for speech-dispatcher, soon.** What works now is enough;
+no new engines beyond those listed here.
+1. Piper as a resident module: speech-dispatcher-piper-sherpa-onnx (sd_sherpa-onnx under a
+   second name, model loaded once) replaces Pied / sd_generic piper-generic.conf, which start
+   piper per message. Finish, test, make it the default Piper path.
+2. One or two more engines on the same runtime: Supertonic 3 (31 languages), Pocket, Kitten,
+   Kokoro v1.0 — the sherpa-onnx models already packaged locally.
+3. Maximum language coverage from these models: a table language → engine/voice (Piper
+   voices per language, Supertonic, RHVoice multiverse voices, Kokoro), free licences only;
+   gaps go to the list in RESEARCH.
+4. Everything into ppa:gtubolcev/linux-tts (resolute + noble): engines, modules, voices
+   within the quota, the rest through the downloader in this app.
+5. Firefox through speech-dispatcher properly: (a) a patch proposal for Firefox's speechd
+   backend (dom/media/webspeech/synth/speechd): honour the default module/voice/language,
+   readable voice names instead of "Голос 1 (ru)"; (b) a Read Aloud fork for our case: voice
+   per language from the speechd config, mixed ru/en text split into language runs.
+**Stage 2 — the full solution, as experts would do it:** ggml / audio.cpp / CrispASR, GPU,
+kokoro.cpp, text preparation (FST, stress), new heavy models, the GUI redesign items.
+
 ## Roadmap (user, 2026-11-12, evening)
 Three goals, in this order:
 1. **Tidy the code** of the modules and the GUI so that a human programmer can read it:
