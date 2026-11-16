@@ -955,7 +955,9 @@ module_line_values (const gchar *line,
 static const gchar *const own_modules[] = { "zonos3", "sherpa", "piper", "vosk", "kokoro", "teratts", NULL };
 
 /* Synthesizer names of our modules and the option prefix each reads:
- * sd_sherpa-onnx is installed under four names, with a configuration each */
+ * sd_sherpa-onnx is installed under two names, with a configuration each;
+ * the piper-sherpa-onnx names are those of speech-dispatcher-modules before
+ * Piper joined the synthesizer sherpa-onnx (2026-11-16) */
 static const gchar *const module_variants[][2] = {
   { "sherpa-onnx", "sherpa" },
   { "sherpa-onnx-vulkan-rs", "sherpa" },
@@ -964,7 +966,7 @@ static const gchar *const module_variants[][2] = {
 };
 
 /* The option prefix of @module: "sherpa" for "sherpa-onnx-vulkan-rs",
- * "piper" for "piper-sherpa-onnx"; @module itself for the others */
+ * "piper" for the former "piper-sherpa-onnx"; @module itself for the others */
 const gchar *
 speechd_module_base (const gchar *module)
 {

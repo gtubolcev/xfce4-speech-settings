@@ -24,9 +24,11 @@
 ## Stages (user, 2026-11-16) — overrides the order below
 **Stage 1 — a decent working TTS for speech-dispatcher, soon.** What works now is enough;
 no new engines beyond those listed here.
-1. Piper as a resident module: speech-dispatcher-piper-sherpa-onnx (sd_sherpa-onnx under a
-   second name, model loaded once) replaces Pied / sd_generic piper-generic.conf, which start
-   piper per message. Finish, test, make it the default Piper path.
+1. Piper as a resident module: the Piper voices are part of the synthesizer sherpa-onnx
+   (2026-11-16; before, a second name piper-sherpa-onnx), model loaded once, two models kept
+   (Piper ru + Supertonic en without reloading); replaces Pied / sd_generic
+   piper-generic.conf, which start piper per message. Pauses between sentences as Piper's
+   own (silence_scale 1, 0.2 s after each piece). Test, make it the default Piper path.
 2. One or two more engines on the same runtime: Supertonic 3 (31 languages), Pocket, Kitten,
    Kokoro v1.0 — the sherpa-onnx models already packaged locally.
 3. Maximum language coverage from these models: a table language → engine/voice (Piper
