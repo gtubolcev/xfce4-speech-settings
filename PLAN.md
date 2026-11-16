@@ -538,3 +538,13 @@ Three goals, in this order:
   language (default from speechd.conf / LanguageDefaultModule), split mixed text into
   language runs and speak each run with the matching voice. Check Firefox's speechd
   backend (dom/media/webspeech/synth/speechd) for what it overrides.
+  **User, 2026-11-16, after the redesigned Read Aloud:** it still downloads voices into its
+  own cache, does not know the page language (and offers no choice), reads with whatever
+  voice is selected, and picks the wrong text: it reads the page through in a row. Needed:
+  voices from speechd (no own downloads), the page/paragraph language (lang attributes,
+  else detection, plus a manual choice), and choosing what to read (selection, the main
+  article, "read from here" on a block) instead of the whole page.
+- **Universal voice manager — agreed** (user, 2026-11-16, "да"): the button becomes
+  "Voices…", shown for every chosen synthesizer that has voices to download, and the
+  window lists that engine's voices. First after Piper: RHVoice, sherpa models
+  (Supertonic, MMS). Order: the manager first, then the Firefox extension.
