@@ -363,6 +363,11 @@ Three goals, in this order:
   2. The onnx-vulkan-rs path above is frozen: the sherpa-onnx-vulkan-rs /
      piper-sherpa-onnx-vulkan-rs names stay as built, no further work on the plugin
      (one author, own ORT 1.29, no Supertonic/Pocket). The GPU path goes through ggml.
+     **Checked 2026-11-16** (`onnx-vulkan inspect`, supertonic-3 int8): text_encoder and
+     vector_estimator fully supported; only PRelu (duration_predictor, vocoder) and an
+     inference-mode BatchNormalization (vocoder) are missing — trivial ops, or rewrite the 3
+     nodes in the graph. The real work stays fixed dims (length buckets; Supertonic has masks)
+     and the sherpa-onnx plugin EP. Postponed by the user ("не срочно"); ggml/.cpp is stage 2.
   3. Pilot: one model on ggml, Kokoro through kokoro.cpp (simonfxr, GGUF; see RESEARCH).
      Measure CPU vs onnxruntime, Vulkan on the Vega 8, .121 (HD 620) and the GTX 1060;
      peak RSS, quantised (Q8/Q4) vs f16. Decide from the numbers whether to port
