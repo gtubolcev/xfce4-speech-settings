@@ -142,8 +142,8 @@ msgstr "неизвестная ошибка"
 #. TRANSLATORS: a synthesizer without a voice for the language
 #: src/speech-page.c:630
 #, c-format
-msgid "%s (no voice for this language)"
-msgstr "%s (нет голоса для этого языка)"
+msgid "%s (no voice)"
+msgstr "%s (нет голоса)"
 
 #: src/speech-page.c:931
 msgid "The synthesizer has no voice for this language"
