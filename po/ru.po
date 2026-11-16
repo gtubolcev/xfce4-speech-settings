@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: xfce4-speech-settings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 00:40+0100\n"
+"POT-Creation-Date: 2026-11-16 23:00+0100\n"
 "PO-Revision-Date: 2026-11-12 01:40+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Russian\n"
@@ -19,15 +19,16 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: data/xfce4-speech-settings.desktop.in:3 src/main.c:134
+#: data/speech-settings.desktop.in:3 data/xfce4-speech-settings.desktop.in:3
+#: src/main.c:152
 msgid "Speech"
 msgstr "Речь"
 
-#: data/xfce4-speech-settings.desktop.in:4
+#: data/speech-settings.desktop.in:4 data/xfce4-speech-settings.desktop.in:4
 msgid "Configure text-to-speech"
 msgstr "Настройка синтеза речи"
 
-#: data/xfce4-speech-settings.desktop.in:5
+#: data/speech-settings.desktop.in:5 data/xfce4-speech-settings.desktop.in:5
 msgid ""
 "speech;tts;text-to-speech;voice;synthesizer;speech-dispatcher;screen "
 "reader;accessibility;a11y;"
@@ -36,146 +37,151 @@ msgstr ""
 "экрана;специальные возможности;speech;tts;text-to-speech;voice;speech-"
 "dispatcher;a11y;"
 
-#: src/main.c:45
+#: src/main.c:49
 msgid "Settings manager socket"
 msgstr "Сокет диспетчера настроек"
 
-#: src/main.c:45
+#: src/main.c:49
 msgid "SOCKET ID"
 msgstr "ID СОКЕТА"
 
-#: src/main.c:48
+#: src/main.c:52
 msgid "Version information"
 msgstr "Информация о версии"
 
-#: src/main.c:90
+#: src/main.c:100
 #, c-format
 msgid "Type '%s --help' for usage."
 msgstr "Введите «%s --help» для получения справки."
 
-#: src/main.c:140
+#: src/main.c:159 src/main.c:161 src/voice-installer.c:1553
 msgid "_Close"
 msgstr "_Закрыть"
 
-#: src/speech-page.c:52
+#: src/speech-page.c:62
 msgid "Male 1"
 msgstr "Мужской 1"
 
-#: src/speech-page.c:53
+#: src/speech-page.c:63
 msgid "Male 2"
 msgstr "Мужской 2"
 
-#: src/speech-page.c:54
+#: src/speech-page.c:64
 msgid "Male 3"
 msgstr "Мужской 3"
 
-#: src/speech-page.c:55
+#: src/speech-page.c:65
 msgid "Female 1"
 msgstr "Женский 1"
 
-#: src/speech-page.c:56
+#: src/speech-page.c:66
 msgid "Female 2"
 msgstr "Женский 2"
 
-#: src/speech-page.c:57
+#: src/speech-page.c:67
 msgid "Female 3"
 msgstr "Женский 3"
 
-#: src/speech-page.c:58
+#: src/speech-page.c:68
 msgid "Child, male"
 msgstr "Детский, мужской"
 
-#: src/speech-page.c:59
+#: src/speech-page.c:69
 msgid "Child, female"
 msgstr "Детский, женский"
 
-#: src/speech-page.c:64
+#: src/speech-page.c:74
 msgid "None"
 msgstr "Не произносить"
 
-#: src/speech-page.c:65
+#: src/speech-page.c:75
 msgid "Some"
 msgstr "Некоторые"
 
-#: src/speech-page.c:66
+#: src/speech-page.c:76
 msgid "Most"
 msgstr "Большинство"
 
-#: src/speech-page.c:67
+#: src/speech-page.c:77
 msgid "All"
 msgstr "Все"
 
-#: src/speech-page.c:77
+#: src/speech-page.c:87
 msgid "Do nothing"
 msgstr "Ничего не делать"
 
-#: src/speech-page.c:78
+#: src/speech-page.c:88
 msgid "Say “capital”"
 msgstr "Говорить «заглавная»"
 
-#: src/speech-page.c:79
+#: src/speech-page.c:89
 msgid "Play a sound"
 msgstr "Подавать звуковой сигнал"
 
-#: src/speech-page.c:90 src/speech-page.c:612
+#: src/speech-page.c:100
 msgid "Automatic"
 msgstr "Автоматически"
 
-#: src/speech-page.c:206 src/speech-page.c:1283
+#: src/speech-page.c:246 src/speech-page.c:1608
 #, c-format
 msgid "Failed to apply the settings: %s"
 msgstr "Не удалось применить настройки: %s"
 
-#: src/speech-page.c:399
+#: src/speech-page.c:439
 msgid "Normal"
 msgstr "Обычно"
 
-#: src/speech-page.c:441
+#: src/speech-page.c:503
 #, c-format
 msgid "Cannot connect to Speech Dispatcher: %s"
 msgstr "Не удаётся подключиться к Speech Dispatcher: %s"
 
-#: src/speech-page.c:442
+#: src/speech-page.c:504
 msgid "unknown error"
 msgstr "неизвестная ошибка"
 
 #. TRANSLATORS: a synthesizer without a voice for the language
-#: src/speech-page.c:630
+#: src/speech-page.c:694
 #, c-format
 msgid "%s (no voice)"
 msgstr "%s (нет голоса)"
 
-#: src/speech-page.c:931
+#: src/speech-page.c:1006
 msgid "The synthesizer has no voice for this language"
 msgstr "У синтезатора нет голоса для этого языка"
 
-#: src/speech-page.c:935
+#: src/speech-page.c:1010
 msgid "This synthesizer chooses its voice by the voice type"
 msgstr "Этот синтезатор выбирает голос по типу голоса"
 
-#: src/speech-page.c:939
+#: src/speech-page.c:1014
 msgid "The voice for this language, kept in the synthesizer's settings"
 msgstr "Голос для этого языка, хранится в настройках синтезатора"
 
-#: src/speech-page.c:982
+#: src/speech-page.c:1063
+#, c-format
+msgid "Failed to save the setting: %s"
+msgstr "Не удалось сохранить настройку: %s"
+
+#: src/speech-page.c:1220
 #, c-format
 msgid "Failed to save the voice: %s"
 msgstr "Не удалось сохранить голос: %s"
 
-#: src/speech-page.c:1356
+#: src/speech-page.c:1681
 msgid "Speech Dispatcher did not accept the text."
 msgstr "Speech Dispatcher не принял текст."
 
-#: src/speech-page.c:1564
+#: src/speech-page.c:1965
 #, c-format
 msgid "Failed to read the settings: %s"
 msgstr "Не удалось прочитать настройки: %s"
 
-#: src/speech-page.c:1574
+#: src/speech-page.c:1975
 msgid "_Use All"
 msgstr "_Использовать все"
 
-#: src/speech-page.c:1578
+#: src/speech-page.c:1979
 msgid ""
 "Your settings list the synthesizers to load, so synthesizers installed later "
 "are not offered. Use all installed synthesizers?"
@@ -185,11 +191,11 @@ msgstr ""
 "синтезаторы?"
 
 #. Voice
-#: src/speech-page.c:1598
+#: src/speech-page.c:1999 src/voice-installer.c:1587
 msgid "Voice"
 msgstr "Голос"
 
-#: src/speech-page.c:1607
+#: src/speech-page.c:2008
 msgid ""
 "Language code like “en-US” or “ru”. Most applications set the language "
 "themselves."
@@ -197,11 +203,11 @@ msgstr ""
 "Код языка, например «ru» или «en-US». Большинство приложений задают язык "
 "сами."
 
-#: src/speech-page.c:1609
+#: src/speech-page.c:2010 src/voice-installer.c:1569
 msgid "_Language:"
 msgstr "_Язык:"
 
-#: src/speech-page.c:1617
+#: src/speech-page.c:2018
 msgid ""
 "The speech synthesizer used when an application does not ask for another "
 "one. Only the ones with a voice for the language are offered."
@@ -209,85 +215,107 @@ msgstr ""
 "Синтезатор речи, который используется, если приложение не выбрало другой. "
 "Предлагаются только синтезаторы с голосом для этого языка."
 
-#: src/speech-page.c:1621
+#: src/speech-page.c:2022
 msgid "_Synthesizer:"
 msgstr "_Синтезатор:"
 
-#: src/speech-page.c:1630
+#: src/speech-page.c:2031
 msgid "_Voice:"
 msgstr "_Голос:"
 
-#: src/speech-page.c:1637
+#: src/speech-page.c:2038
 msgid "The synthesizer maps these types to its own voices"
 msgstr "Синтезатор сопоставляет эти типы со своими голосами"
 
-#: src/speech-page.c:1639
+#: src/speech-page.c:2040
 msgid "Voice _type:"
 msgstr "_Тип голоса:"
 
-#: src/speech-page.c:1650
+#: src/speech-page.c:2050
+msgid "_Keep the synthesizer loaded"
+msgstr "_Держать синтезатор загруженным"
+
+#: src/speech-page.c:2052
+msgid ""
+"Load the synthesizer when the speech server starts and keep it in memory: "
+"the first message is spoken sooner. Otherwise it is loaded with the first "
+"message and freed after five minutes without speech."
+msgstr ""
+"Загружать синтезатор при запуске речевого сервера и держать его в памяти: "
+"первое сообщение прозвучит быстрее. Иначе он загружается с первым сообщением "
+"и выгружается после пяти минут без речи."
+
+#: src/speech-page.c:2063
+msgid "_Piper Voices…"
+msgstr "_Голоса Piper…"
+
+#: src/speech-page.c:2065
+msgid "Download more voices for the synthesizer sherpa-onnx"
+msgstr "Скачать ещё голоса для синтезатора sherpa-onnx"
+
+#: src/speech-page.c:2077
 msgid "_Rate:"
 msgstr "С_корость:"
 
-#: src/speech-page.c:1651
+#: src/speech-page.c:2078
 msgid "Slower"
 msgstr "Медленнее"
 
-#: src/speech-page.c:1651
+#: src/speech-page.c:2078
 msgid "Faster"
 msgstr "Быстрее"
 
-#: src/speech-page.c:1653
+#: src/speech-page.c:2080
 msgid "_Pitch:"
 msgstr "_Высота:"
 
-#: src/speech-page.c:1654
+#: src/speech-page.c:2081
 msgid "Lower"
 msgstr "Ниже"
 
-#: src/speech-page.c:1654
+#: src/speech-page.c:2081
 msgid "Higher"
 msgstr "Выше"
 
-#: src/speech-page.c:1656
+#: src/speech-page.c:2083
 msgid "_Volume:"
 msgstr "Гро_мкость:"
 
-#: src/speech-page.c:1657
+#: src/speech-page.c:2084
 msgid "Quieter"
 msgstr "Тише"
 
-#: src/speech-page.c:1657
+#: src/speech-page.c:2084
 msgid "Louder"
 msgstr "Громче"
 
 #. Reading
-#: src/speech-page.c:1660
+#: src/speech-page.c:2087
 msgid "Reading"
 msgstr "Чтение"
 
-#: src/speech-page.c:1664
+#: src/speech-page.c:2091
 msgid "P_unctuation:"
 msgstr "_Знаки препинания:"
 
-#: src/speech-page.c:1671
+#: src/speech-page.c:2098
 msgid "_Capital letters:"
 msgstr "_Заглавные буквы:"
 
-#: src/speech-page.c:1679
+#: src/speech-page.c:2106
 msgid "_Output:"
 msgstr "_Вывод:"
 
 #. Test
-#: src/speech-page.c:1684
+#: src/speech-page.c:2111
 msgid "Test"
 msgstr "Проверка"
 
-#: src/speech-page.c:1698 src/speech-page.c:1700
+#: src/speech-page.c:2126 src/speech-page.c:2128
 msgid "This is how your computer speaks."
 msgstr "Так говорит ваш компьютер."
 
-#: src/speech-page.c:1705
+#: src/speech-page.c:2133
 msgid ""
 "Ctrl+Enter speaks the text. Most Russian voices take \"+\" before a vowel as "
 "its stress: зам+ок."
@@ -295,17 +323,158 @@ msgstr ""
 "Ctrl+Enter произносит текст. Большинство русских голосов понимает «+» перед "
 "гласной как ударение: зам+ок."
 
-#: src/speech-page.c:1720
+#: src/speech-page.c:2148
 msgid "Te_xt:"
 msgstr "Те_кст:"
 
-#: src/speech-page.c:1741
+#: src/speech-page.c:2169
 msgid "_Speak"
 msgstr "_Произнести"
 
-#: src/speech-page.c:1746
+#: src/speech-page.c:2174
 msgid "S_top"
 msgstr "_Остановить"
+
+#: src/voice-installer.c:202
+msgid "Installed"
+msgstr "Установлен"
+
+#: src/voice-installer.c:204
+msgid "Installed with the system"
+msgstr "Установлен в системе"
+
+#: src/voice-installer.c:206
+msgid "Available"
+msgstr "Можно скачать"
+
+#: src/voice-installer.c:443
+msgid "not stated"
+msgstr "не указана"
+
+#: src/voice-installer.c:471
+msgid "Licence: not stated"
+msgstr "Лицензия: не указана"
+
+#: src/voice-installer.c:478
+#, c-format
+msgid "Licence: %s"
+msgstr "Лицензия: %s"
+
+#: src/voice-installer.c:489
+msgid "Licence: …"
+msgstr "Лицензия: …"
+
+#: src/voice-installer.c:683
+msgid "All languages"
+msgstr "Все языки"
+
+#: src/voice-installer.c:721
+msgid "The list of voices is damaged"
+msgstr "Список голосов повреждён"
+
+#: src/voice-installer.c:737
+msgid "The list of voices is empty"
+msgstr "Список голосов пуст"
+
+#: src/voice-installer.c:795
+msgid "The list of voices is too big"
+msgstr "Список голосов слишком велик"
+
+#: src/voice-installer.c:812
+msgid "The list of voices could not be updated; an older one is shown."
+msgstr "Не удалось обновить список голосов; показан прежний."
+
+#: src/voice-installer.c:816
+#, c-format
+msgid "The list of voices could not be loaded: %s"
+msgstr "Не удалось загрузить список голосов: %s"
+
+#: src/voice-installer.c:840
+msgid "Loading the list of voices…"
+msgstr "Загрузка списка голосов…"
+
+#: src/voice-installer.c:875
+#, c-format
+msgid "The voice could not be installed: %s"
+msgstr "Не удалось установить голос: %s"
+
+#: src/voice-installer.c:908
+msgid ""
+"the espeak-ng data of Piper is missing; install the package piper-espeak-ng-"
+"data"
+msgstr "нет данных espeak-ng для Piper; установите пакет piper-espeak-ng-data"
+
+#: src/voice-installer.c:915
+msgid "the voice is installed already"
+msgstr "голос уже установлен"
+
+#: src/voice-installer.c:954
+msgid "the download was cut short"
+msgstr "загрузка оборвалась"
+
+#: src/voice-installer.c:957 src/voice-installer.c:1272
+msgid "the download is damaged (wrong checksum)"
+msgstr "загрузка повреждена (не совпала контрольная сумма)"
+
+#: src/voice-installer.c:998 src/voice-installer.c:1057
+#: src/voice-installer.c:1265
+msgid "the download is too big"
+msgstr "загрузка слишком велика"
+
+#: src/voice-installer.c:1068
+msgid "Downloading…"
+msgstr "Загрузка…"
+
+#: src/voice-installer.c:1175
+#, c-format
+msgid "this voice uses \"%s\" phonemes, which are not supported yet"
+msgstr "голос использует фонемы «%s», они пока не поддерживаются"
+
+#: src/voice-installer.c:1236
+msgid "the settings of the voice cannot be read"
+msgstr "не удаётся прочитать настройки голоса"
+
+#: src/voice-installer.c:1372
+msgid "Connecting…"
+msgstr "Соединение…"
+
+#: src/voice-installer.c:1413
+#, c-format
+msgid "The voice could not be removed: %s"
+msgstr "Не удалось удалить голос: %s"
+
+#: src/voice-installer.c:1549
+msgid "Piper Voices"
+msgstr "Голоса Piper"
+
+#: src/voice-installer.c:1551
+msgid "_Remove"
+msgstr "_Удалить"
+
+#: src/voice-installer.c:1552
+msgid "_Install"
+msgstr "_Установить"
+
+#: src/voice-installer.c:1560
+msgid ""
+"Download the voice from the Piper voice collection and install it for you"
+msgstr "Скачать голос из коллекции голосов Piper и установить его для вас"
+
+#: src/voice-installer.c:1586
+msgid "Language"
+msgstr "Язык"
+
+#: src/voice-installer.c:1588
+msgid "Quality"
+msgstr "Качество"
+
+#: src/voice-installer.c:1589
+msgid "Size"
+msgstr "Размер"
+
+#: src/voice-installer.c:1590
+msgid "State"
+msgstr "Состояние"
 
 #~ msgid "Audio"
 #~ msgstr "Звук"
