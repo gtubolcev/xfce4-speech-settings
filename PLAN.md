@@ -226,6 +226,13 @@ Three goals, in this order:
 - README.
 
 ## Later
+- **Later list (user, 2026-11-16):**
+  - check everything with Orca and other screen readers (speechd clients: Orca, Fenrir,
+    speakup/espeakup, KDE's Qt TextToSpeech): voices, languages, module start, fallback;
+  - a standalone speech-settings in Qt, and a KDE variant (System Settings module);
+  - checks on Red Hat / CentOS Stream (and Fedora): packaging, speechd versions, paths;
+  - variants for other distributions, chosen by distrowatch or, better, real usage data;
+  - look again at *BSD support (speechd on FreeBSD/OpenBSD ports, audio, our modules).
 - **Russian text preparation for all modules** (user, 2026-11-14). Supertonic reads
   "в 2026 году" as "в две тысячи двадцать шесть году", MMS drops digits and Latin words,
   Piper (espeak-ng) reads numbers without case and English words with English phonemes.
