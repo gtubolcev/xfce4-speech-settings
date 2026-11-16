@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: xfce4-speech-settings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 00:40+0100\n"
+"POT-Creation-Date: 2026-11-16 23:00+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,278 +17,444 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: data/xfce4-speech-settings.desktop.in:3 src/main.c:134
+#: data/speech-settings.desktop.in:3 data/xfce4-speech-settings.desktop.in:3
+#: src/main.c:152
 msgid "Speech"
 msgstr ""
 
-#: data/xfce4-speech-settings.desktop.in:4
+#: data/speech-settings.desktop.in:4 data/xfce4-speech-settings.desktop.in:4
 msgid "Configure text-to-speech"
 msgstr ""
 
-#: data/xfce4-speech-settings.desktop.in:5
+#: data/speech-settings.desktop.in:5 data/xfce4-speech-settings.desktop.in:5
 msgid ""
 "speech;tts;text-to-speech;voice;synthesizer;speech-dispatcher;screen "
 "reader;accessibility;a11y;"
 msgstr ""
 
-#: src/main.c:45
+#: src/main.c:49
 msgid "Settings manager socket"
 msgstr ""
 
-#: src/main.c:45
+#: src/main.c:49
 msgid "SOCKET ID"
 msgstr ""
 
-#: src/main.c:48
+#: src/main.c:52
 msgid "Version information"
 msgstr ""
 
-#: src/main.c:90
+#: src/main.c:100
 #, c-format
 msgid "Type '%s --help' for usage."
 msgstr ""
 
-#: src/main.c:140
+#: src/main.c:159 src/main.c:161 src/voice-installer.c:1553
 msgid "_Close"
 msgstr ""
 
-#: src/speech-page.c:52
+#: src/speech-page.c:62
 msgid "Male 1"
 msgstr ""
 
-#: src/speech-page.c:53
+#: src/speech-page.c:63
 msgid "Male 2"
 msgstr ""
 
-#: src/speech-page.c:54
+#: src/speech-page.c:64
 msgid "Male 3"
 msgstr ""
 
-#: src/speech-page.c:55
+#: src/speech-page.c:65
 msgid "Female 1"
 msgstr ""
 
-#: src/speech-page.c:56
+#: src/speech-page.c:66
 msgid "Female 2"
 msgstr ""
 
-#: src/speech-page.c:57
+#: src/speech-page.c:67
 msgid "Female 3"
 msgstr ""
 
-#: src/speech-page.c:58
+#: src/speech-page.c:68
 msgid "Child, male"
 msgstr ""
 
-#: src/speech-page.c:59
+#: src/speech-page.c:69
 msgid "Child, female"
 msgstr ""
 
-#: src/speech-page.c:64
+#: src/speech-page.c:74
 msgid "None"
 msgstr ""
 
-#: src/speech-page.c:65
+#: src/speech-page.c:75
 msgid "Some"
 msgstr ""
 
-#: src/speech-page.c:66
+#: src/speech-page.c:76
 msgid "Most"
 msgstr ""
 
-#: src/speech-page.c:67
+#: src/speech-page.c:77
 msgid "All"
 msgstr ""
 
-#: src/speech-page.c:77
+#: src/speech-page.c:87
 msgid "Do nothing"
 msgstr ""
 
-#: src/speech-page.c:78
+#: src/speech-page.c:88
 msgid "Say “capital”"
 msgstr ""
 
-#: src/speech-page.c:79
+#: src/speech-page.c:89
 msgid "Play a sound"
 msgstr ""
 
-#: src/speech-page.c:90 src/speech-page.c:612
+#: src/speech-page.c:100
 msgid "Automatic"
 msgstr ""
 
-#: src/speech-page.c:206 src/speech-page.c:1283
+#: src/speech-page.c:246 src/speech-page.c:1608
 #, c-format
 msgid "Failed to apply the settings: %s"
 msgstr ""
 
-#: src/speech-page.c:399
+#: src/speech-page.c:439
 msgid "Normal"
 msgstr ""
 
-#: src/speech-page.c:441
+#: src/speech-page.c:503
 #, c-format
 msgid "Cannot connect to Speech Dispatcher: %s"
 msgstr ""
 
-#: src/speech-page.c:442
+#: src/speech-page.c:504
 msgid "unknown error"
 msgstr ""
 
 #. TRANSLATORS: a synthesizer without a voice for the language
-#: src/speech-page.c:630
+#: src/speech-page.c:694
 #, c-format
 msgid "%s (no voice)"
 msgstr ""
 
-#: src/speech-page.c:931
+#: src/speech-page.c:1006
 msgid "The synthesizer has no voice for this language"
 msgstr ""
 
-#: src/speech-page.c:935
+#: src/speech-page.c:1010
 msgid "This synthesizer chooses its voice by the voice type"
 msgstr ""
 
-#: src/speech-page.c:939
+#: src/speech-page.c:1014
 msgid "The voice for this language, kept in the synthesizer's settings"
 msgstr ""
 
-#: src/speech-page.c:982
+#: src/speech-page.c:1063
+#, c-format
+msgid "Failed to save the setting: %s"
+msgstr ""
+
+#: src/speech-page.c:1220
 #, c-format
 msgid "Failed to save the voice: %s"
 msgstr ""
 
-#: src/speech-page.c:1356
+#: src/speech-page.c:1681
 msgid "Speech Dispatcher did not accept the text."
 msgstr ""
 
-#: src/speech-page.c:1564
+#: src/speech-page.c:1965
 #, c-format
 msgid "Failed to read the settings: %s"
 msgstr ""
 
-#: src/speech-page.c:1574
+#: src/speech-page.c:1975
 msgid "_Use All"
 msgstr ""
 
-#: src/speech-page.c:1578
+#: src/speech-page.c:1979
 msgid ""
 "Your settings list the synthesizers to load, so synthesizers installed later "
 "are not offered. Use all installed synthesizers?"
 msgstr ""
 
 #. Voice
-#: src/speech-page.c:1598
+#: src/speech-page.c:1999 src/voice-installer.c:1587
 msgid "Voice"
 msgstr ""
 
-#: src/speech-page.c:1607
+#: src/speech-page.c:2008
 msgid ""
 "Language code like “en-US” or “ru”. Most applications set the language "
 "themselves."
 msgstr ""
 
-#: src/speech-page.c:1609
+#: src/speech-page.c:2010 src/voice-installer.c:1569
 msgid "_Language:"
 msgstr ""
 
-#: src/speech-page.c:1617
+#: src/speech-page.c:2018
 msgid ""
 "The speech synthesizer used when an application does not ask for another "
 "one. Only the ones with a voice for the language are offered."
 msgstr ""
 
-#: src/speech-page.c:1621
+#: src/speech-page.c:2022
 msgid "_Synthesizer:"
 msgstr ""
 
-#: src/speech-page.c:1630
+#: src/speech-page.c:2031
 msgid "_Voice:"
 msgstr ""
 
-#: src/speech-page.c:1637
+#: src/speech-page.c:2038
 msgid "The synthesizer maps these types to its own voices"
 msgstr ""
 
-#: src/speech-page.c:1639
+#: src/speech-page.c:2040
 msgid "Voice _type:"
 msgstr ""
 
-#: src/speech-page.c:1650
+#: src/speech-page.c:2050
+msgid "_Keep the synthesizer loaded"
+msgstr ""
+
+#: src/speech-page.c:2052
+msgid ""
+"Load the synthesizer when the speech server starts and keep it in memory: "
+"the first message is spoken sooner. Otherwise it is loaded with the first "
+"message and freed after five minutes without speech."
+msgstr ""
+
+#: src/speech-page.c:2063
+msgid "_Piper Voices…"
+msgstr ""
+
+#: src/speech-page.c:2065
+msgid "Download more voices for the synthesizer sherpa-onnx"
+msgstr ""
+
+#: src/speech-page.c:2077
 msgid "_Rate:"
 msgstr ""
 
-#: src/speech-page.c:1651
+#: src/speech-page.c:2078
 msgid "Slower"
 msgstr ""
 
-#: src/speech-page.c:1651
+#: src/speech-page.c:2078
 msgid "Faster"
 msgstr ""
 
-#: src/speech-page.c:1653
+#: src/speech-page.c:2080
 msgid "_Pitch:"
 msgstr ""
 
-#: src/speech-page.c:1654
+#: src/speech-page.c:2081
 msgid "Lower"
 msgstr ""
 
-#: src/speech-page.c:1654
+#: src/speech-page.c:2081
 msgid "Higher"
 msgstr ""
 
-#: src/speech-page.c:1656
+#: src/speech-page.c:2083
 msgid "_Volume:"
 msgstr ""
 
-#: src/speech-page.c:1657
+#: src/speech-page.c:2084
 msgid "Quieter"
 msgstr ""
 
-#: src/speech-page.c:1657
+#: src/speech-page.c:2084
 msgid "Louder"
 msgstr ""
 
 #. Reading
-#: src/speech-page.c:1660
+#: src/speech-page.c:2087
 msgid "Reading"
 msgstr ""
 
-#: src/speech-page.c:1664
+#: src/speech-page.c:2091
 msgid "P_unctuation:"
 msgstr ""
 
-#: src/speech-page.c:1671
+#: src/speech-page.c:2098
 msgid "_Capital letters:"
 msgstr ""
 
-#: src/speech-page.c:1679
+#: src/speech-page.c:2106
 msgid "_Output:"
 msgstr ""
 
 #. Test
-#: src/speech-page.c:1684
+#: src/speech-page.c:2111
 msgid "Test"
 msgstr ""
 
-#: src/speech-page.c:1698 src/speech-page.c:1700
+#: src/speech-page.c:2126 src/speech-page.c:2128
 msgid "This is how your computer speaks."
 msgstr ""
 
-#: src/speech-page.c:1705
+#: src/speech-page.c:2133
 msgid ""
 "Ctrl+Enter speaks the text. Most Russian voices take \"+\" before a vowel as "
 "its stress: зам+ок."
 msgstr ""
 
-#: src/speech-page.c:1720
+#: src/speech-page.c:2148
 msgid "Te_xt:"
 msgstr ""
 
-#: src/speech-page.c:1741
+#: src/speech-page.c:2169
 msgid "_Speak"
 msgstr ""
 
-#: src/speech-page.c:1746
+#: src/speech-page.c:2174
 msgid "S_top"
+msgstr ""
+
+#: src/voice-installer.c:202
+msgid "Installed"
+msgstr ""
+
+#: src/voice-installer.c:204
+msgid "Installed with the system"
+msgstr ""
+
+#: src/voice-installer.c:206
+msgid "Available"
+msgstr ""
+
+#: src/voice-installer.c:443
+msgid "not stated"
+msgstr ""
+
+#: src/voice-installer.c:471
+msgid "Licence: not stated"
+msgstr ""
+
+#: src/voice-installer.c:478
+#, c-format
+msgid "Licence: %s"
+msgstr ""
+
+#: src/voice-installer.c:489
+msgid "Licence: …"
+msgstr ""
+
+#: src/voice-installer.c:683
+msgid "All languages"
+msgstr ""
+
+#: src/voice-installer.c:721
+msgid "The list of voices is damaged"
+msgstr ""
+
+#: src/voice-installer.c:737
+msgid "The list of voices is empty"
+msgstr ""
+
+#: src/voice-installer.c:795
+msgid "The list of voices is too big"
+msgstr ""
+
+#: src/voice-installer.c:812
+msgid "The list of voices could not be updated; an older one is shown."
+msgstr ""
+
+#: src/voice-installer.c:816
+#, c-format
+msgid "The list of voices could not be loaded: %s"
+msgstr ""
+
+#: src/voice-installer.c:840
+msgid "Loading the list of voices…"
+msgstr ""
+
+#: src/voice-installer.c:875
+#, c-format
+msgid "The voice could not be installed: %s"
+msgstr ""
+
+#: src/voice-installer.c:908
+msgid ""
+"the espeak-ng data of Piper is missing; install the package piper-espeak-ng-"
+"data"
+msgstr ""
+
+#: src/voice-installer.c:915
+msgid "the voice is installed already"
+msgstr ""
+
+#: src/voice-installer.c:954
+msgid "the download was cut short"
+msgstr ""
+
+#: src/voice-installer.c:957 src/voice-installer.c:1272
+msgid "the download is damaged (wrong checksum)"
+msgstr ""
+
+#: src/voice-installer.c:998 src/voice-installer.c:1057
+#: src/voice-installer.c:1265
+msgid "the download is too big"
+msgstr ""
+
+#: src/voice-installer.c:1068
+msgid "Downloading…"
+msgstr ""
+
+#: src/voice-installer.c:1175
+#, c-format
+msgid "this voice uses \"%s\" phonemes, which are not supported yet"
+msgstr ""
+
+#: src/voice-installer.c:1236
+msgid "the settings of the voice cannot be read"
+msgstr ""
+
+#: src/voice-installer.c:1372
+msgid "Connecting…"
+msgstr ""
+
+#: src/voice-installer.c:1413
+#, c-format
+msgid "The voice could not be removed: %s"
+msgstr ""
+
+#: src/voice-installer.c:1549
+msgid "Piper Voices"
+msgstr ""
+
+#: src/voice-installer.c:1551
+msgid "_Remove"
+msgstr ""
+
+#: src/voice-installer.c:1552
+msgid "_Install"
+msgstr ""
+
+#: src/voice-installer.c:1560
+msgid ""
+"Download the voice from the Piper voice collection and install it for you"
+msgstr ""
+
+#: src/voice-installer.c:1586
+msgid "Language"
+msgstr ""
+
+#: src/voice-installer.c:1588
+msgid "Quality"
+msgstr ""
+
+#: src/voice-installer.c:1589
+msgid "Size"
+msgstr ""
+
+#: src/voice-installer.c:1590
+msgid "State"
 msgstr ""
