@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: xfce4-speech-settings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 23:00+0100\n"
+"POT-Creation-Date: 2026-11-16 23:06+0100\n"
 "PO-Revision-Date: 2026-11-12 01:40+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Russian\n"
@@ -54,7 +54,7 @@ msgstr "Информация о версии"
 msgid "Type '%s --help' for usage."
 msgstr "Введите «%s --help» для получения справки."
 
-#: src/main.c:159 src/main.c:161 src/voice-installer.c:1553
+#: src/main.c:159 src/main.c:161 src/voice-installer.c:1590
 msgid "_Close"
 msgstr "_Закрыть"
 
@@ -191,7 +191,7 @@ msgstr ""
 "синтезаторы?"
 
 #. Voice
-#: src/speech-page.c:1999 src/voice-installer.c:1587
+#: src/speech-page.c:1999 src/voice-installer.c:1624
 msgid "Voice"
 msgstr "Голос"
 
@@ -203,7 +203,7 @@ msgstr ""
 "Код языка, например «ru» или «en-US». Большинство приложений задают язык "
 "сами."
 
-#: src/speech-page.c:2010 src/voice-installer.c:1569
+#: src/speech-page.c:2010 src/voice-installer.c:1606
 msgid "_Language:"
 msgstr "_Язык:"
 
@@ -443,36 +443,56 @@ msgstr "Соединение…"
 msgid "The voice could not be removed: %s"
 msgstr "Не удалось удалить голос: %s"
 
-#: src/voice-installer.c:1549
+#: src/voice-installer.c:1499
+msgid "Stop installing the voice?"
+msgstr "Прервать установку голоса?"
+
+#: src/voice-installer.c:1501
+msgid ""
+"The voice is still being downloaded. If the window is closed, the download "
+"stops and the voice is not installed."
+msgstr ""
+"Голос ещё скачивается. Если закрыть окно, загрузка прервётся и голос не "
+"будет установлен."
+
+#: src/voice-installer.c:1505
+msgid "_Continue Downloading"
+msgstr "_Продолжить загрузку"
+
+#: src/voice-installer.c:1506
+msgid "_Stop and Close"
+msgstr "П_рервать и закрыть"
+
+#: src/voice-installer.c:1586
 msgid "Piper Voices"
 msgstr "Голоса Piper"
 
-#: src/voice-installer.c:1551
+#: src/voice-installer.c:1588
 msgid "_Remove"
 msgstr "_Удалить"
 
-#: src/voice-installer.c:1552
+#: src/voice-installer.c:1589
 msgid "_Install"
 msgstr "_Установить"
 
-#: src/voice-installer.c:1560
+#: src/voice-installer.c:1597
 msgid ""
 "Download the voice from the Piper voice collection and install it for you"
 msgstr "Скачать голос из коллекции голосов Piper и установить его для вас"
 
-#: src/voice-installer.c:1586
+#: src/voice-installer.c:1623
 msgid "Language"
 msgstr "Язык"
 
-#: src/voice-installer.c:1588
+#: src/voice-installer.c:1625
 msgid "Quality"
 msgstr "Качество"
 
-#: src/voice-installer.c:1589
+#: src/voice-installer.c:1626
 msgid "Size"
 msgstr "Размер"
 
-#: src/voice-installer.c:1590
+#: src/voice-installer.c:1627
 msgid "State"
 msgstr "Состояние"
 
