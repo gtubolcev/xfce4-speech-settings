@@ -150,6 +150,12 @@ Three goals, in this order:
    xfce4-speech-settings 0.1.0-5 built, 0.1.0-4 installed.
 
 ## Next
+- **Bug (user, 2026-11-16, later):** the modal Piper Voices dialog can go behind the main window
+  after a click outside it; the main window then takes no input. Check its transient parent
+  (likely a GtkPlug in the settings manager, so the WM does not keep it on top).
+- **Universal voice manager** (user, 2026-11-16: "сделать загрузчик (менеджер) голосов более
+  универсальным, с выбором того, для какого движка поставить"): see the proposal in the chat of
+  that day; the Piper part now downloads from the Piper collection itself (a39dac1).
 - **Language first** (user, 2026-11-11: "ставим первым в GUI (и логически) именно язык, и уже
   к нему привязываем конфигурацию"). The dialog starts with the language; everything that
   speechd can keep per language is set for that language:
