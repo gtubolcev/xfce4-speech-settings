@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: xfce4-speech-settings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 23:00+0100\n"
+"POT-Creation-Date: 2026-11-16 23:06+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -49,7 +49,7 @@ msgstr ""
 msgid "Type '%s --help' for usage."
 msgstr ""
 
-#: src/main.c:159 src/main.c:161 src/voice-installer.c:1553
+#: src/main.c:159 src/main.c:161 src/voice-installer.c:1590
 msgid "_Close"
 msgstr ""
 
@@ -183,7 +183,7 @@ msgid ""
 msgstr ""
 
 #. Voice
-#: src/speech-page.c:1999 src/voice-installer.c:1587
+#: src/speech-page.c:1999 src/voice-installer.c:1624
 msgid "Voice"
 msgstr ""
 
@@ -193,7 +193,7 @@ msgid ""
 "themselves."
 msgstr ""
 
-#: src/speech-page.c:2010 src/voice-installer.c:1569
+#: src/speech-page.c:2010 src/voice-installer.c:1606
 msgid "_Language:"
 msgstr ""
 
@@ -426,35 +426,53 @@ msgstr ""
 msgid "The voice could not be removed: %s"
 msgstr ""
 
-#: src/voice-installer.c:1549
+#: src/voice-installer.c:1499
+msgid "Stop installing the voice?"
+msgstr ""
+
+#: src/voice-installer.c:1501
+msgid ""
+"The voice is still being downloaded. If the window is closed, the download "
+"stops and the voice is not installed."
+msgstr ""
+
+#: src/voice-installer.c:1505
+msgid "_Continue Downloading"
+msgstr ""
+
+#: src/voice-installer.c:1506
+msgid "_Stop and Close"
+msgstr ""
+
+#: src/voice-installer.c:1586
 msgid "Piper Voices"
 msgstr ""
 
-#: src/voice-installer.c:1551
+#: src/voice-installer.c:1588
 msgid "_Remove"
 msgstr ""
 
-#: src/voice-installer.c:1552
+#: src/voice-installer.c:1589
 msgid "_Install"
 msgstr ""
 
-#: src/voice-installer.c:1560
+#: src/voice-installer.c:1597
 msgid ""
 "Download the voice from the Piper voice collection and install it for you"
 msgstr ""
 
-#: src/voice-installer.c:1586
+#: src/voice-installer.c:1623
 msgid "Language"
 msgstr ""
 
-#: src/voice-installer.c:1588
+#: src/voice-installer.c:1625
 msgid "Quality"
 msgstr ""
 
-#: src/voice-installer.c:1589
+#: src/voice-installer.c:1626
 msgid "Size"
 msgstr ""
 
-#: src/voice-installer.c:1590
+#: src/voice-installer.c:1627
 msgid "State"
 msgstr ""

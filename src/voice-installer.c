@@ -1482,6 +1482,43 @@ enum
   RESPONSE_REMOVE
 };
 
+/* Closing the dialog stops a download: ask first. FALSE: keep it open. */
+static gboolean
+installer_may_close (Installer *in)
+{
+  GtkWidget *ask;
+  gint       answer;
+  gboolean   closed;
+
+  if (!in->busy)
+    return TRUE;
+
+  ask = gtk_message_dialog_new (GTK_WINDOW (in->dialog),
+                                GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
+                                _("Stop installing the voice?"));
+  gtk_message_dialog_format_secondary_text (GTK_MESSAGE_DIALOG (ask),
+                                            _("The voice is still being downloaded. "
+                                              "If the window is closed, the download "
+                                              "stops and the voice is not installed."));
+  gtk_dialog_add_buttons (GTK_DIALOG (ask),
+                          _("_Continue Downloading"), GTK_RESPONSE_CANCEL,
+                          _("_Stop and Close"), GTK_RESPONSE_ACCEPT, NULL);
+  gtk_dialog_set_default_response (GTK_DIALOG (ask), GTK_RESPONSE_CANCEL);
+
+  /* the download goes on meanwhile; the dialog may go with its parent */
+  installer_ref (in);
+  answer = gtk_dialog_run (GTK_DIALOG (ask));
+  closed = in->closed;
+  if (!closed)
+    gtk_widget_destroy (ask);
+  installer_unref (in);
+
+  return !closed && answer == GTK_RESPONSE_ACCEPT;
+}
+
+
+
 static void
 installer_response (GtkDialog *dialog,
                     gint       response,
@@ -1491,7 +1528,7 @@ installer_response (GtkDialog *dialog,
     installer_install (in);
   else if (response == RESPONSE_REMOVE)
     installer_remove (in);
-  else
+  else if (installer_may_close (in))
     gtk_widget_destroy (GTK_WIDGET (dialog));
 }
 
