@@ -691,7 +691,7 @@ speech_page_fill_modules (SpeechPage *page)
       else
         {
           /* TRANSLATORS: a synthesizer without a voice for the language */
-          label = g_strdup_printf (_("%s (no voice for this language)"), module);
+          label = g_strdup_printf (_("%s (no voice)"), module);
           gtk_combo_box_text_append (combo, module, label);
           g_free (label);
         }

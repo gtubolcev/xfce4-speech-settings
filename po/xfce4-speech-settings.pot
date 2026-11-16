@@ -137,7 +137,7 @@ msgstr ""
 #. TRANSLATORS: a synthesizer without a voice for the language
 #: src/speech-page.c:630
 #, c-format
-msgid "%s (no voice for this language)"
+msgid "%s (no voice)"
 msgstr ""
 
 #: src/speech-page.c:931
