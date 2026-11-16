@@ -41,8 +41,9 @@
 #define LANGUAGE_DELAY_MS 500
 /* time the server needs to restart its modules after a reload */
 #define REFILL_DELAY_MS 1500
-/* the Piper synthesizer; the voices button is shown when it is installed */
-#define PIPER_MODULE_PATH "/usr/lib/speech-dispatcher-modules/sd_piper-sherpa-onnx"
+/* the synthesizer that speaks Piper voices; the voices button is shown when
+ * it is installed */
+#define PIPER_MODULE_PATH "/usr/lib/speech-dispatcher-modules/sd_sherpa-onnx"
 
 /* Built-in defaults of Speech Dispatcher, used when a key is not set */
 #define DEFAULT_LANGUAGE "en-US"
@@ -1028,7 +1029,7 @@ speech_page_update_voices (SpeechPage *page)
 
 
 
-/* "SherpaPreload" for "sherpa-onnx", "PiperPreload" for "piper-sherpa-onnx" */
+/* "SherpaPreload" for "sherpa-onnx" and "sherpa-onnx-vulkan-rs" */
 static gchar *
 speech_page_module_key (const gchar *module,
                         const gchar *suffix)
@@ -2062,7 +2063,7 @@ speech_page_new (void)
   page->voices_button = gtk_button_new_with_mnemonic (_("_Piper Voices…"));
   gtk_widget_set_tooltip_text (page->voices_button,
                                _("Download more voices for the synthesizer "
-                                 "piper-sherpa-onnx"));
+                                 "sherpa-onnx"));
   gtk_widget_set_halign (page->voices_button, GTK_ALIGN_START);
   gtk_grid_attach (GTK_GRID (grid), page->voices_button, 1, 5, 1, 1);
   gtk_widget_set_no_show_all (page->voices_button, TRUE);

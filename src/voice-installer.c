@@ -17,7 +17,7 @@
  */
 
 /*
- * Installs Piper voices for the synthesizer piper-sherpa-onnx into
+ * Installs Piper voices for the synthesizer sherpa-onnx into
  * ~/.local/share/sherpa-onnx/tts, where sd_sherpa-onnx finds them.
  *
  * The list of voices is voices.json of the Piper voice collection
