@@ -41,9 +41,10 @@
 #define LANGUAGE_DELAY_MS 500
 /* time the server needs to restart its modules after a reload */
 #define REFILL_DELAY_MS 1500
-/* the synthesizer that speaks Piper voices; the voices button is shown when
- * it is installed */
+/* the synthesizer that speaks Piper voices, also as "sherpa-onnx-vulkan-rs";
+ * the voices button is shown when it is installed and chosen */
 #define PIPER_MODULE_PATH "/usr/lib/speech-dispatcher-modules/sd_sherpa-onnx"
+#define PIPER_MODULE "sherpa-onnx"
 
 /* Built-in defaults of Speech Dispatcher, used when a key is not set */
 #define DEFAULT_LANGUAGE "en-US"
@@ -1072,6 +1073,26 @@ speech_page_set_module_option (SpeechPage  *page,
 
 
 
+/* The Piper voices button only for the synthesizer that speaks them: the chosen
+ * one, else the default */
+static void
+speech_page_sync_voices_button (SpeechPage *page)
+{
+  gchar    *module;
+  gboolean  piper;
+
+  if (page->voices_button == NULL)
+    return;
+
+  module = speech_page_get_module (page);
+  piper = module != NULL && g_str_has_prefix (module, PIPER_MODULE)
+          && g_file_test (PIPER_MODULE_PATH, G_FILE_TEST_EXISTS);
+  gtk_widget_set_visible (page->voices_button, piper);
+  g_free (module);
+}
+
+
+
 /* Our modules load their model with the first message and free it after
  * some minutes without speech. "<Module>Preload" loads it when the module
  * starts, "<Module>IdleTimeout 0" keeps it. Only the default synthesizer
@@ -1163,6 +1184,7 @@ speech_page_preload_toggled (GtkToggleButton *button,
 
   page->preload = gtk_toggle_button_get_active (button);
   speech_page_sync_preload (page);
+  speech_page_sync_voices_button (page);
 }
 
 
@@ -1228,6 +1250,7 @@ speech_page_voice_changed (GtkComboBox *combo,
       page->reload_pending = TRUE;
       speech_page_queue_save (page);
       speech_page_sync_preload (page);
+      speech_page_sync_voices_button (page);
     }
 
   g_free (type);
@@ -1255,6 +1278,7 @@ speech_page_module_changed (GtkComboBox *combo,
   speech_page_load_voices (page);
   speech_page_update_voices (page);
   speech_page_sync_preload (page);
+  speech_page_sync_voices_button (page);
 }
 
 
@@ -1374,6 +1398,7 @@ speech_page_apply_language (gpointer data)
   page->updating = FALSE;
   speech_page_update_voices (page);
   speech_page_sync_preload (page);
+  speech_page_sync_voices_button (page);
 
   g_free (language);
 
@@ -2067,8 +2092,7 @@ speech_page_new (void)
   gtk_widget_set_halign (page->voices_button, GTK_ALIGN_START);
   gtk_grid_attach (GTK_GRID (grid), page->voices_button, 1, 5, 1, 1);
   gtk_widget_set_no_show_all (page->voices_button, TRUE);
-  gtk_widget_set_visible (page->voices_button,
-                          g_file_test (PIPER_MODULE_PATH, G_FILE_TEST_EXISTS));
+  speech_page_sync_voices_button (page);
   g_signal_connect (page->voices_button, "clicked",
                     G_CALLBACK (speech_page_voices_clicked), page);
 
