@@ -548,3 +548,10 @@ Three goals, in this order:
   "Voices…", shown for every chosen synthesizer that has voices to download, and the
   window lists that engine's voices. First after Piper: RHVoice, sherpa models
   (Supertonic, MMS). Order: the manager first, then the Firefox extension.
+  Later (user, postponed): language and engine filters in the manager window, to find
+  one's way among all engines and languages. For now one engine: the chosen synthesizer.
+- **Firefox extension, notes** (user, 2026-11-16): study Read Aloud's internals first
+  (how it finds the text, site handlers, highlighting), something may be reusable.
+  Readability is fine to start with, but many sites have no reader view, and on some it
+  picks menus or side content as the main text: a manual choice of the region (pick a
+  block, read from here, selection) must always be there.
