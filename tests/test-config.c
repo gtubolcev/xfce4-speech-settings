@@ -412,6 +412,66 @@ test_changed_on_disk (void)
 
 
 
+static void
+test_language_module (void)
+{
+  gchar         *dir = setup_config_home ();
+  gchar         *conf_dir, *path, *contents, *module;
+  SpeechdConfig *config;
+
+  conf_dir = g_build_filename (dir, "speech-dispatcher", NULL);
+  path = g_build_filename (conf_dir, "speechd.conf", NULL);
+  g_mkdir_with_parents (conf_dir, 0700);
+  g_assert_true (g_file_set_contents (path,
+    "DefaultModule \"vosk\"\n"
+    "DefaultLanguage \"ru\"\n", -1, NULL));
+
+  config = speechd_config_load (NULL);
+  g_assert_null (speechd_config_get_language_module (config, "de"));
+
+  /* a new line goes after DefaultModule, the next after it */
+  speechd_config_set_language_module (config, "de", "sherpa-onnx");
+  speechd_config_set_language_module (config, "en", "rhvoice");
+  speechd_config_set_language_module (config, "de", "piper");
+  speechd_config_set_language_module (config, "en", "rhvoice");
+  module = speechd_config_get_language_module (config, "DE");
+  g_assert_cmpstr (module, ==, "piper");
+  g_free (module);
+  g_assert_true (speechd_config_save (config, NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==,
+    "DefaultModule \"vosk\"\n"
+    "LanguageDefaultModule \"de\" \"piper\"\n"
+    "LanguageDefaultModule \"en\" \"rhvoice\"\n"
+    "DefaultLanguage \"ru\"\n");
+  g_free (contents);
+
+  /* removing comments out every line of the language, also a duplicate
+   * written by hand meanwhile */
+  g_assert_true (g_file_set_contents (path,
+    "DefaultModule \"vosk\"\n"
+    "LanguageDefaultModule \"de\" \"piper\"\n"
+    "LanguageDefaultModule \"en\" \"rhvoice\"\n"
+    "LanguageDefaultModule \"de\" \"espeak-ng\"\n", -1, NULL));
+  speechd_config_set_language_module (config, "de", NULL);
+  g_assert_true (speechd_config_save (config, NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==,
+    "DefaultModule \"vosk\"\n"
+    "# LanguageDefaultModule \"de\" \"piper\"\n"
+    "LanguageDefaultModule \"en\" \"rhvoice\"\n"
+    "# LanguageDefaultModule \"de\" \"espeak-ng\"\n");
+  g_free (contents);
+  g_assert_null (speechd_config_get_language_module (config, "de"));
+
+  speechd_config_free (config);
+  g_free (path);
+  g_free (conf_dir);
+  cleanup_config_home (dir);
+}
+
+
+
 int
 main (int    argc,
       char **argv)
@@ -425,6 +485,7 @@ main (int    argc,
   g_test_add_func ("/config/module-option", test_module_option);
   g_test_add_func ("/config/module-variant", test_module_variant);
   g_test_add_func ("/config/changed-on-disk", test_changed_on_disk);
+  g_test_add_func ("/config/language-module", test_language_module);
 
   return g_test_run ();
 }

@@ -44,6 +44,7 @@ typedef enum
   EDIT_SET,
   EDIT_UNSET,
   EDIT_DETECT_MODULES,
+  EDIT_LANGUAGE_MODULE,
 } EditKind;
 
 typedef struct
@@ -556,6 +557,9 @@ replay_edits (SpeechdConfig *config)
         case EDIT_UNSET:
           speechd_config_unset (config, edit->key);
           break;
+        case EDIT_LANGUAGE_MODULE:
+          speechd_config_set_language_module (config, edit->key, edit->value);
+          break;
         case EDIT_DETECT_MODULES:
           /* it worked on the old contents; if not on these, keep them */
           speechd_config_use_detected_modules (config, NULL);
@@ -681,6 +685,118 @@ foreach_option (SpeechdConfig *config,
         }
       g_free (key);
     }
+}
+
+
+
+typedef struct
+{
+  const gchar *language;
+  gint         index;      /* the last line for the language */
+  gint         last_any;   /* the last LanguageDefaultModule line */
+  gint         default_module;
+  gchar       *module;
+} LanguageModuleData;
+
+static void
+find_language_module (SpeechdConfig *config,
+                      guint          index,
+                      const gchar   *key,
+                      gchar        **values,
+                      gpointer       user_data)
+{
+  LanguageModuleData *data = user_data;
+
+  if (g_ascii_strcasecmp (key, "DefaultModule") == 0)
+    data->default_module = index;
+  if (g_ascii_strcasecmp (key, "LanguageDefaultModule") != 0
+      || g_strv_length (values) < 2)
+    return;
+
+  data->last_any = index;
+  if (g_ascii_strcasecmp (values[0], data->language) == 0)
+    {
+      data->index = index;
+      g_free (data->module);
+      data->module = g_strdup (values[1]);
+    }
+}
+
+
+
+/* The module of a LanguageDefaultModule line for @language, or NULL */
+gchar *
+speechd_config_get_language_module (SpeechdConfig *config,
+                                    const gchar   *language)
+{
+  LanguageModuleData data = { language, -1, -1, -1, NULL };
+
+  g_return_val_if_fail (language != NULL, NULL);
+
+  foreach_option (config, FALSE, find_language_module, &data);
+
+  return data.module;
+}
+
+
+
+/* Sets the LanguageDefaultModule line of @language to @module, or comments
+ * it out when @module is NULL. A new line goes after the other languages'
+ * lines, else after DefaultModule. */
+void
+speechd_config_set_language_module (SpeechdConfig *config,
+                                    const gchar   *language,
+                                    const gchar   *module)
+{
+  LanguageModuleData data = { language, -1, -1, -1, NULL };
+  gchar             *line;
+
+  g_return_if_fail (language != NULL && strchr (language, '"') == NULL);
+  g_return_if_fail (module == NULL || strchr (module, '"') == NULL);
+
+  add_edit (config, EDIT_LANGUAGE_MODULE, language, module, TRUE);
+
+  foreach_option (config, FALSE, find_language_module, &data);
+
+  if (module == NULL)
+    {
+      /* every line of the language: an earlier one would apply again */
+      while (data.index >= 0)
+        {
+          line = g_ptr_array_index (config->lines, data.index);
+          g_ptr_array_index (config->lines, data.index) = g_strconcat ("# ", line, NULL);
+          g_free (line);
+          config->dirty = TRUE;
+
+          g_clear_pointer (&data.module, g_free);
+          data.index = data.last_any = data.default_module = -1;
+          foreach_option (config, FALSE, find_language_module, &data);
+        }
+      g_free (data.module);
+      return;
+    }
+
+  if (g_strcmp0 (data.module, module) == 0)
+    {
+      g_free (data.module);
+      return;
+    }
+  g_free (data.module);
+
+  line = g_strdup_printf ("LanguageDefaultModule \"%s\" \"%s\"", language, module);
+  if (data.index >= 0)
+    {
+      g_free (g_ptr_array_index (config->lines, data.index));
+      g_ptr_array_index (config->lines, data.index) = line;
+    }
+  else if (data.last_any >= 0)
+    g_ptr_array_insert (config->lines, data.last_any + 1, line);
+  else if (data.default_module >= 0)
+    g_ptr_array_insert (config->lines, data.default_module + 1, line);
+  else
+    g_ptr_array_add (config->lines, line);
+
+  config->dirty = TRUE;
 }
 
 

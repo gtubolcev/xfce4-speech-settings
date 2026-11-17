@@ -650,6 +650,37 @@ speech_page_scan_modules (SpeechPage *page)
 
 
 
+/* Writes @module ("" for none) as the synthesizer of the selected language:
+ * its LanguageDefaultModule line, and DefaultModule when it is the default
+ * language (texts and clients without a language) */
+static void
+speech_page_store_module (SpeechPage  *page,
+                          const gchar *module)
+{
+  gchar *language = speech_page_get_language (page);
+  gchar *default_language = speechd_config_get (page->config, "DefaultLanguage");
+
+  if (language == NULL || *language == '\0'
+      || speech_page_same_language (language, default_language != NULL
+                                               ? default_language
+                                               : DEFAULT_LANGUAGE))
+    {
+      if (*module == '\0')
+        speechd_config_unset (page->config, "DefaultModule");
+      else
+        speechd_config_set (page->config, "DefaultModule", module);
+    }
+
+  if (language != NULL && *language != '\0')
+    speechd_config_set_language_module (page->config, language,
+                                        *module != '\0' ? module : NULL);
+
+  g_free (default_language);
+  g_free (language);
+}
+
+
+
 /* Offers the modules that speak the selected language, and the selected one */
 static void
 speech_page_fill_modules (SpeechPage *page)
@@ -662,10 +693,12 @@ speech_page_fill_modules (SpeechPage *page)
   gboolean         found = FALSE;
   guint            i;
 
-  current = g_strdup (gtk_combo_box_get_active_id (GTK_COMBO_BOX (combo)));
+  language = speech_page_get_language (page);
+  current = NULL;
+  if (language != NULL && *language != '\0')
+    current = speechd_config_get_language_module (page->config, language);
   if (current == NULL)
     current = speechd_config_get (page->config, "DefaultModule");
-  language = speech_page_get_language (page);
 
   gtk_combo_box_text_remove_all (combo);
 
@@ -697,15 +730,20 @@ speech_page_fill_modules (SpeechPage *page)
   if (current != NULL && *current != '\0' && !found)
     gtk_combo_box_text_append (combo, current, current);
 
-  /* Without DefaultModule Speech Dispatcher falls back to espeak-ng, which
-   * is hidden here. Take the first synthesizer that speaks the language
-   * instead, also in the configuration, so the dialog shows what is used;
-   * it is saved together with the next change. */
-  if ((current == NULL || *current == '\0') && first != NULL)
+  /* Without a module for the language Speech Dispatcher would use
+   * espeak-ng, which is hidden here, or a module without a voice for it,
+   * which reads the text with a voice of another language. Take the first
+   * synthesizer that speaks the language instead, also in the
+   * configuration, so the dialog shows what is used. */
+  if (first != NULL
+      && (current == NULL || *current == '\0'
+          || !speech_page_module_speaks (page, current, language)))
     {
       g_free (current);
       current = g_strdup (first);
-      speechd_config_set (page->config, "DefaultModule", current);
+      speech_page_store_module (page, current);
+      if (speechd_config_is_dirty (page->config))
+        speech_page_queue_save (page);
     }
 
   if (current != NULL)
@@ -1262,10 +1300,7 @@ speech_page_module_changed (GtkComboBox *combo,
   if (page->updating || module == NULL)
     return;
 
-  if (*module == '\0')
-    speechd_config_unset (page->config, "DefaultModule");
-  else
-    speechd_config_set (page->config, "DefaultModule", module);
+  speech_page_store_module (page, module);
   speech_page_queue_save (page);
 
   speech_page_load_voices (page);
