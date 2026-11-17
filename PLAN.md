@@ -67,6 +67,17 @@ no new engines beyond those listed here.
      - highlight follows the reading;
      - mixed ru/en splits into the right voices;
      - then a listening spot check with real speechd voices on ~10 pages (to files only).
+   - Speech check by several recognizers (user, 2026-11-17): the audio of the real voices
+     (files only, never played) is transcribed by several STT systems and compared with the
+     text that was sent:
+     - for Russian: GigaAM (v2/v3 CTC/RNNT, Sber, MIT), Whisper (large-v3 / turbo), Vosk
+       (the big ru model), T-one if it is ready;
+     - for English: Whisper, Parakeet/Canary (NeMo), Vosk en.
+     Output: WER/CER per sentence and per recognizer. A sentence is flagged when most
+     recognizers disagree with the text. Disagreement between the recognizers themselves
+     points to unclear speech, and the same error in all of them to a TTS or normalization
+     error (numbers, Latin, stress). This uses the same tools as `linux-tts/scripts/norm-test`
+     (`asr.py`, Vosk), extended to several engines, and runs in docker on mikhail-desktop.
    - Expected problems to note per site:
      - login walls, cookie banners, captchas;
      - geo-blocking: some Runet sites block foreign IPs, and some world sites block Russian
@@ -74,6 +85,15 @@ no new engines beyond those listed here.
      - SPAs that load text late;
      - infinite feeds;
      - shadow DOM, iframes.
+   - Saved copies to work on (user, 2026-11-17): save a couple of pages per site once,
+     then run the tests and the fixes on the copies, served by a local `http.server`. This
+     is repeatable, and sites change or block over time. Keep the copies outside git, in
+     `_tmp/sites/<date>/`; they are for private tests only.
+     - `wget -p -k -E -H` keeps the files but not what JS draws after loading, and many big
+       sites (SPAs, lazy text) render with JS.
+     - So also save the rendered DOM from Firefox itself, with a SingleFile-style snapshot
+       or `document.documentElement.outerHTML` after load and scroll.
+     - Compare the two copies with the live site in the first runs.
    - Heavy news portals get extra pages: cnn.com, bbc.com, nytimes.com, ria.ru, lenta.ru,
      rbc.ru and the like. Their structure is complex: live blogs, galleries, embedded
      videos, "read more" blocks inside the article, lazy-loaded paragraphs, paywalls. Take
