@@ -48,6 +48,11 @@ void           speechd_config_unset      (SpeechdConfig *config,
                                           const gchar   *key);
 
 /* AddModule lines turn off the detection of the installed modules */
+gchar         *speechd_config_get_language_module (SpeechdConfig *config,
+                                                   const gchar   *language);
+void           speechd_config_set_language_module (SpeechdConfig *config,
+                                                   const gchar   *language,
+                                                   const gchar   *module);
 gboolean       speechd_config_has_module_list      (SpeechdConfig *config);
 gboolean       speechd_config_use_detected_modules (SpeechdConfig *config,
                                                     GError       **error);
