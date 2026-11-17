@@ -264,7 +264,11 @@ Three goals, in this order:
   - Done 2026-11-11 (step 1): Language is the first row; its list is the union of all
     modules' languages (codes only); the Synthesizer list shows only the modules with a voice
     for it (the configured one stays, marked "no voice for this language"). Still open: language
-    names, LanguageDefaultModule per language, the "All languages" section, Voice type out.
+    names, the "All languages" section, Voice type out.
+  - Done 2026-11-17: the Synthesizer choice is written as `LanguageDefaultModule` for the
+    selected language (and `DefaultModule` for the default language); a language whose module
+    has no voice for it gets the first module that has one. The dialog applies its edits to
+    speechd.conf as it is on disk when saving, so lines written meanwhile by hand stay.
 - eSpeak / eSpeak NG hidden from the Synthesizer list and their languages from the Language
   list (user, 2026-11-11: "их синтез ужасен, нет смысла возиться").
 - **RHVoice voice per language** (user, 2026-11-11): RHVoice's sd_module (rhvoice source package,
