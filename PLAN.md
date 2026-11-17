@@ -234,6 +234,12 @@ Three goals, in this order:
     resize to the natural height on every switch, or keep a fixed row for the button.
 
 ## Next
+
+- **Explicit "other languages" synthesizer** (user, 2026-11-18: "DefaultModule где я могу
+  поменять? В gui"). Today DefaultModule is set implicitly: the Language field is
+  DefaultLanguage, and the synthesizer chosen while it shows that language goes to both
+  LanguageDefaultModule and DefaultModule. Add a row "Other languages: [synthesizer]" bound
+  to DefaultModule alone, and stop writing DefaultModule from the per-language combo.
 - **Order (user, 2026-11-17):** 1) the Firefox extension, plus patches for Firefox itself
   proposed upstream (its speechd backend: speechd defaults, per-language voice);
   2) then the third voice source (sherpa models). Also: mirror all downloadable voices
