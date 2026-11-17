@@ -150,6 +150,11 @@ Three goals, in this order:
    xfce4-speech-settings 0.1.0-5 built, 0.1.0-4 installed.
 
 ## Next
+- **Order (user, 2026-11-17):** 1) the Firefox extension, plus patches for Firefox itself
+  proposed upstream (its speechd backend: speechd defaults, per-language voice);
+  2) then the third voice source (sherpa models). Also: mirror all downloadable voices
+  (Piper, RHVoice, sherpa models) on the user's GitHub — licences to check per voice,
+  GitHub releases (2 GiB per file) rather than LFS (1 GiB free quota).
 - **Bug (user, 2026-11-16, later):** the modal Piper Voices dialog can go behind the main window
   after a click outside it; the main window then takes no input. Check its transient parent
   (likely a GtkPlug in the settings manager, so the WM does not keep it on top).
