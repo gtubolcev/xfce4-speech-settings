@@ -40,6 +40,43 @@ no new engines beyond those listed here.
    backend (dom/media/webspeech/synth/speechd): honour the default module/voice/language,
    readable voice names instead of "Голос 1 (ru)"; (b) a Read Aloud fork for our case: voice
    per language from the speechd config, mixed ru/en text split into language runs.
+6. **Acceptance tests, near the end of stage 1 (user, 2026-11-17):** the Firefox reader
+   (speechd-reader) and the voices on the 100 most popular sites in the world and the 100 most
+   popular in the Russian internet.
+   - Lists:
+     - Tranco top list (tranco-list.eu, research use, stable). Fix the date of the list.
+     - Runet: a LiveInternet/Yandex rating, or Tranco limited to .ru/.рф plus the big
+       Russian sites on .com (vk, yandex, mail, avito, ozon, wildberries, dzen, habr, 4pda…).
+     - Leave out CDNs and API hosts that have no page (googleapis, akamai…), then fill up
+       to 100.
+   - For each site take the main page **and** one typical text page: article, post, product,
+     topic. Main pages are often not readable. Keep the URL list in the repo so runs can be
+     repeated.
+   - Automated pass: Firefox on Xvfb with the "all sites" right, and the fake host recording
+     the text. Per page record:
+     - whether the script got in (CSP, sandboxed frames);
+     - the panel: shown, not covering the page's own controls, not broken by the site's CSS;
+     - the ▶ buttons: placed at paragraphs;
+     - "Read": what Readability picked (the first and last sentences, the word count) and the
+       language per block;
+     - the picker on the main block;
+     - errors in the console;
+     - a screenshot.
+   - Manual pass over the results table:
+     - right text or not (menus, ads, comments read?);
+     - highlight follows the reading;
+     - mixed ru/en splits into the right voices;
+     - then a listening spot check with real speechd voices on ~10 pages (to files only).
+   - Expected problems to note per site:
+     - login walls, cookie banners, captchas;
+     - geo-blocking: some Runet sites block foreign IPs, and some world sites block Russian
+       ones;
+     - SPAs that load text late;
+     - infinite feeds;
+     - shadow DOM, iframes.
+   - Outcome: a table site → works / partly / no, with the reason. The fixes go into the
+     extension (per-site corrections, `siteCorrections`), and a summary goes into the
+     release notes.
 **Stage 2 — the full solution, as experts would do it:** ggml / audio.cpp / CrispASR, GPU,
 kokoro.cpp, text preparation (FST, stress), new heavy models, the GUI redesign items.
 
