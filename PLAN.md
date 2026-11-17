@@ -74,6 +74,12 @@ no new engines beyond those listed here.
      - SPAs that load text late;
      - infinite feeds;
      - shadow DOM, iframes.
+   - Heavy news portals get extra pages: cnn.com, bbc.com, nytimes.com, ria.ru, lenta.ru,
+     rbc.ru and the like. Their structure is complex: live blogs, galleries, embedded
+     videos, "read more" blocks inside the article, lazy-loaded paragraphs, paywalls. Take
+     3–5 pages of different kinds per portal (a plain article, a live blog, a page with video,
+     a long read). Check that the article text is read whole and in order, and that nothing
+     from teasers, captions or ads gets in.
    - Outcome: a table site → works / partly / no, with the reason. The fixes go into the
      extension (per-site corrections, `siteCorrections`), and a summary goes into the
      release notes.
