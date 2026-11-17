@@ -571,6 +571,14 @@ Three goals, in this order:
   ~/.local/share/RHVoice, needs rhvoice +voice3). Next source: sherpa models.
 - **Firefox extension, notes** (user, 2026-11-16): study Read Aloud's internals first
   (how it finds the text, site handlers, highlighting), something may be reusable.
+  **Element picker** (user, 2026-11-17): choose the part of the page like uBlock Origin's
+  element picker or the DevTools inspector (hover highlights a block with a frame and its
+  size/selector label, click picks it). The DevTools picker is not open to extensions, so
+  an own one in the content script: overlay + elementFromPoint, wheel / arrow keys to go to
+  the parent or child block, click = read this block, Shift+click = read from here to the
+  end, Esc cancels; also fully by keyboard. Optional: remember the picked selector per
+  site ("always read this region here", like uBlock's cosmetic filters). The block's
+  `lang` (or detection) picks the voice.
   Readability is fine to start with, but many sites have no reader view, and on some it
   picks menus or side content as the main text: a manual choice of the region (pick a
   block, read from here, selection) must always be there.
