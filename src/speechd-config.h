@@ -53,6 +53,7 @@ gchar         *speechd_config_get_language_module (SpeechdConfig *config,
 void           speechd_config_set_language_module (SpeechdConfig *config,
                                                    const gchar   *language,
                                                    const gchar   *module);
+GPtrArray     *speechd_config_used_modules         (SpeechdConfig *config);
 gboolean       speechd_config_has_module_list      (SpeechdConfig *config);
 gboolean       speechd_config_use_detected_modules (SpeechdConfig *config,
                                                     GError       **error);

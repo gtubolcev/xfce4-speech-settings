@@ -178,9 +178,7 @@ typedef struct
   GtkWidget     *preload_check;
   GtkWidget     *voices_button;
   /* the user wants the default synthesizer kept in memory */
-  gboolean       preload;
   /* the module whose configuration has our Preload line, or NULL */
-  gchar         *preload_module;
   /* the voices of the selected module, NULL-terminated, or NULL */
   SPDVoice     **voices;
   /* the modules of the server, and the languages each one has voices for */
@@ -658,6 +656,8 @@ speech_page_scan_modules (SpeechPage *page)
 /* Writes @module ("" for none) as the synthesizer of the selected language:
  * its LanguageDefaultModule line, and DefaultModule when it is the default
  * language (texts and clients without a language) */
+static void speech_page_park_preloads (SpeechPage *page);
+
 static void
 speech_page_store_module (SpeechPage  *page,
                           const gchar *module)
@@ -682,6 +682,8 @@ speech_page_store_module (SpeechPage  *page,
 
   g_free (default_language);
   g_free (language);
+
+  speech_page_park_preloads (page);
 }
 
 
@@ -1151,14 +1153,155 @@ speech_page_sync_voices_button (SpeechPage *page)
 
 /* Our modules load their model with the first message and free it after
  * some minutes without speech. "<Module>Preload" loads it when the module
- * starts, "<Module>IdleTimeout 0" keeps it. Only the default synthesizer
- * gets them: the lines move with it and go when the check box is off. */
+ * starts, "<Module>IdleTimeout 0" keeps it. The check box shows and sets
+ * them for the selected synthesizer. A synthesizer that no language uses
+ * any more has them parked in the dialog's own file, so its model takes no
+ * memory, and gets them back when it is chosen again. */
+
+#define PRELOAD_FILE "preload.ini"
+
+static gchar *
+speech_page_preload_path (void)
+{
+  return g_build_filename (g_get_user_config_dir (), "xfce4-speech-settings",
+                           PRELOAD_FILE, NULL);
+}
+
+static gboolean
+speech_page_option_on (const gchar *value)
+{
+  return value != NULL && *value != '\0' && strcmp (value, "0") != 0;
+}
+
+/* The value of "<Module>Preload": sd_sherpa-onnx has many models and
+ * preloads the one of a voice, the others take "1" */
+static gchar *
+speech_page_preload_value (SpeechPage  *page,
+                           const gchar *module)
+{
+  gchar *value;
+  gchar *language;
+  gchar *type;
+
+  if (strcmp (speechd_module_base (module), "sherpa") != 0
+      && strcmp (speechd_module_base (module), "piper") != 0)
+    return g_strdup ("1");
+
+  language = speech_page_get_language (page);
+  type = speech_page_get_voice_type (page);
+  value = speechd_module_get_voice (module, language, type);
+  if (value == NULL)
+    value = g_strdup (gtk_combo_box_get_active_id (
+                        GTK_COMBO_BOX (page->voice_combo)));
+  g_free (type);
+  g_free (language);
+
+  return value;
+}
+
+/* Moves the preload options of the modules no language uses into the
+ * dialog's file, and back for the modules in use again */
 static void
-speech_page_sync_preload (SpeechPage *page)
+speech_page_park_preloads (SpeechPage *page)
+{
+  GPtrArray *used;
+  GKeyFile  *parked;
+  gchar     *path;
+  gboolean   changed = FALSE;
+  guint      i;
+
+  if (page->modules == NULL || page->config == NULL)
+    return;
+
+  used = speechd_config_used_modules (page->config);
+  parked = g_key_file_new ();
+  path = speech_page_preload_path ();
+  g_key_file_load_from_file (parked, path, G_KEY_FILE_KEEP_COMMENTS, NULL);
+
+  for (i = 0; page->modules[i] != NULL; i++)
+    {
+      const gchar *module = page->modules[i];
+      gchar       *key = speech_page_module_key (module, "Preload");
+      gchar       *idle_key = speech_page_module_key (module, "IdleTimeout");
+      gchar       *value = NULL;
+      gboolean     in_use = speech_page_array_has (used, module);
+
+      if (speechd_module_has_option (module, key))
+        value = speechd_module_get_option (module, key);
+
+      if (!in_use && speech_page_option_on (value))
+        {
+          gchar *idle = speechd_module_get_option (module, idle_key);
+
+          g_key_file_set_string (parked, module, "Preload", value);
+          if (idle != NULL)
+            g_key_file_set_string (parked, module, "IdleTimeout", idle);
+          speech_page_set_module_option (page, module, key, NULL);
+          speech_page_set_module_option (page, module, idle_key, NULL);
+          changed = TRUE;
+          g_free (idle);
+        }
+      else if (in_use && !speech_page_option_on (value)
+               && g_key_file_has_group (parked, module))
+        {
+          gchar *saved = g_key_file_get_string (parked, module, "Preload", NULL);
+          gchar *idle = g_key_file_get_string (parked, module, "IdleTimeout",
+                                               NULL);
+
+          if (speech_page_option_on (saved))
+            {
+              speech_page_set_module_option (page, module, key, saved);
+              speech_page_set_module_option (page, module, idle_key, idle);
+            }
+          g_key_file_remove_group (parked, module, NULL);
+          changed = TRUE;
+          g_free (idle);
+          g_free (saved);
+        }
+
+      g_free (value);
+      g_free (idle_key);
+      g_free (key);
+    }
+
+  if (changed)
+    {
+      gchar *dir = g_path_get_dirname (path);
+
+      if (g_mkdir_with_parents (dir, 0700) == 0)
+        g_key_file_save_to_file (parked, path, NULL);
+      g_free (dir);
+    }
+
+  g_free (path);
+  g_key_file_free (parked);
+  g_ptr_array_unref (used);
+}
+
+/* Forgets a parked state of @module: the user just decided */
+static void
+speech_page_unpark (const gchar *module)
+{
+  GKeyFile *parked = g_key_file_new ();
+  gchar    *path = speech_page_preload_path ();
+
+  if (g_key_file_load_from_file (parked, path, G_KEY_FILE_KEEP_COMMENTS, NULL)
+      && g_key_file_remove_group (parked, module, NULL))
+    g_key_file_save_to_file (parked, path, NULL);
+  g_free (path);
+  g_key_file_free (parked);
+}
+
+/* Shows the selected synthesizer's state in the check box; with
+ * @follow_voice, a preloaded sd_sherpa-onnx preloads the voice just chosen */
+static void
+speech_page_sync_preload_full (SpeechPage *page,
+                               gboolean    follow_voice)
 {
   gchar   *module = speech_page_get_module (page);
   gchar   *key = NULL;
   gboolean supported = FALSE;
+  gboolean on = FALSE;
 
   if (module != NULL && *module != '\0')
     {
@@ -1166,52 +1309,20 @@ speech_page_sync_preload (SpeechPage *page)
       supported = speechd_module_has_option (module, key);
     }
 
-  if (page->preload_module != NULL
-      && (!page->preload || !supported
-          || strcmp (page->preload_module, module) != 0))
+  if (supported)
     {
-      gchar *old_key = speech_page_module_key (page->preload_module, "Preload");
-      gchar *idle_key = speech_page_module_key (page->preload_module,
-                                                "IdleTimeout");
+      gchar *value = speechd_module_get_option (module, key);
 
-      speech_page_set_module_option (page, page->preload_module, old_key, NULL);
-      speech_page_set_module_option (page, page->preload_module, idle_key, NULL);
-      g_free (idle_key);
-      g_free (old_key);
-      g_clear_pointer (&page->preload_module, g_free);
-    }
-
-  if (page->preload && supported)
-    {
-      gchar *idle_key = speech_page_module_key (module, "IdleTimeout");
-      gchar *value = NULL;
-
-      /* sd_sherpa-onnx has many models and preloads the one of a voice */
-      if (strcmp (speechd_module_base (module), "sherpa") == 0
-          || strcmp (speechd_module_base (module), "piper") == 0)
+      on = speech_page_option_on (value);
+      if (on && follow_voice)
         {
-          gchar *language = speech_page_get_language (page);
-          gchar *type = speech_page_get_voice_type (page);
+          gchar *wanted = speech_page_preload_value (page, module);
 
-          value = speechd_module_get_voice (module, language, type);
-          if (value == NULL)
-            value = g_strdup (gtk_combo_box_get_active_id (
-                                GTK_COMBO_BOX (page->voice_combo)));
-          g_free (type);
-          g_free (language);
-        }
-      else
-        value = g_strdup ("1");
-
-      if (value != NULL)
-        {
-          speech_page_set_module_option (page, module, key, value);
-          speech_page_set_module_option (page, module, idle_key, "0");
-          g_free (page->preload_module);
-          page->preload_module = g_strdup (module);
+          if (wanted != NULL)
+            speech_page_set_module_option (page, module, key, wanted);
+          g_free (wanted);
         }
       g_free (value);
-      g_free (idle_key);
     }
 
   if (page->preload_check != NULL)
@@ -1222,12 +1333,18 @@ speech_page_sync_preload (SpeechPage *page)
       /* the others load fast enough: nothing to offer */
       gtk_widget_set_visible (page->preload_check, supported);
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (page->preload_check),
-                                    page->preload && supported);
+                                    on);
       page->updating = updating;
     }
 
   g_free (key);
   g_free (module);
+}
+
+static void
+speech_page_sync_preload (SpeechPage *page)
+{
+  speech_page_sync_preload_full (page, FALSE);
 }
 
 
@@ -1236,23 +1353,13 @@ static void
 speech_page_preload_toggled (GtkToggleButton *button,
                              SpeechPage      *page)
 {
+  gchar *module;
+  gchar *key, *idle_key;
+
   if (page->updating)
     return;
 
-  page->preload = gtk_toggle_button_get_active (button);
-  speech_page_sync_preload (page);
-  speech_page_sync_voices_button (page);
-}
-
-
-
-/* Whether the user's configuration of the default synthesizer preloads it */
-static void
-speech_page_load_preload (SpeechPage *page)
-{
-  gchar *module = speech_page_get_module (page);
-  gchar *key, *value;
-
+  module = speech_page_get_module (page);
   if (module == NULL || *module == '\0')
     {
       g_free (module);
@@ -1260,13 +1367,31 @@ speech_page_load_preload (SpeechPage *page)
     }
 
   key = speech_page_module_key (module, "Preload");
-  value = speechd_module_get_option (module, key);
-  page->preload = value != NULL && *value != '\0' && strcmp (value, "0") != 0;
-  if (page->preload)
-    page->preload_module = g_strdup (module);
-  g_free (value);
+  idle_key = speech_page_module_key (module, "IdleTimeout");
+  if (gtk_toggle_button_get_active (button))
+    {
+      gchar *value = speech_page_preload_value (page, module);
+
+      if (value != NULL)
+        {
+          speech_page_set_module_option (page, module, key, value);
+          speech_page_set_module_option (page, module, idle_key, "0");
+        }
+      g_free (value);
+    }
+  else
+    {
+      speech_page_set_module_option (page, module, key, NULL);
+      speech_page_set_module_option (page, module, idle_key, NULL);
+    }
+  speech_page_unpark (module);
+
+  g_free (idle_key);
   g_free (key);
   g_free (module);
+
+  speech_page_sync_preload (page);
+  speech_page_sync_voices_button (page);
 }
 
 
@@ -1306,7 +1431,7 @@ speech_page_voice_changed (GtkComboBox *combo,
     {
       page->reload_pending = TRUE;
       speech_page_queue_save (page);
-      speech_page_sync_preload (page);
+      speech_page_sync_preload_full (page, TRUE);
       speech_page_sync_voices_button (page);
     }
 
@@ -1794,7 +1919,6 @@ speech_page_free (gpointer data)
       speech_page_store_language (page, page->typed_language);
     }
   g_free (page->typed_language);
-  g_free (page->preload_module);
 
   if (page->save_id != 0)
     {
@@ -2143,7 +2267,8 @@ speech_page_new (void)
                                  "freed after five minutes without speech."));
   gtk_widget_set_no_show_all (page->preload_check, TRUE);
   gtk_grid_attach (GTK_GRID (grid), page->preload_check, 1, 4, 1, 1);
-  speech_page_load_preload (page);
+  /* a synthesizer left unused by an older version or by hand */
+  speech_page_park_preloads (page);
   speech_page_sync_preload (page);
   g_signal_connect (page->preload_check, "toggled",
                     G_CALLBACK (speech_page_preload_toggled), page);

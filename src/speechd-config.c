@@ -740,6 +740,45 @@ speechd_config_get_language_module (SpeechdConfig *config,
 
 
 
+static void
+add_used_module (SpeechdConfig *config,
+                 guint          index,
+                 const gchar   *key,
+                 gchar        **values,
+                 gpointer       user_data)
+{
+  GPtrArray   *used = user_data;
+  const gchar *module = NULL;
+  guint        i;
+
+  if (g_ascii_strcasecmp (key, "DefaultModule") == 0 && values[0] != NULL)
+    module = values[0];
+  else if (g_ascii_strcasecmp (key, "LanguageDefaultModule") == 0
+           && g_strv_length (values) >= 2)
+    module = values[1];
+  if (module == NULL || *module == '\0')
+    return;
+  for (i = 0; i < used->len; i++)
+    if (strcmp (g_ptr_array_index (used, i), module) == 0)
+      return;
+  g_ptr_array_add (used, g_strdup (module));
+}
+
+/* The modules the configuration speaks with: DefaultModule and those of
+ * the LanguageDefaultModule lines (not the client sections). Free with
+ * g_ptr_array_unref. */
+GPtrArray *
+speechd_config_used_modules (SpeechdConfig *config)
+{
+  GPtrArray *used = g_ptr_array_new_with_free_func (g_free);
+
+  foreach_option (config, FALSE, add_used_module, used);
+
+  return used;
+}
+
+
+
 /* Sets the LanguageDefaultModule line of @language to @module, or comments
  * it out when @module is NULL. A new line goes after the other languages'
  * lines, else after DefaultModule. */
