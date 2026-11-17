@@ -240,6 +240,11 @@ Three goals, in this order:
   DefaultLanguage, and the synthesizer chosen while it shows that language goes to both
   LanguageDefaultModule and DefaultModule. Add a row "Other languages: [synthesizer]" bound
   to DefaultModule alone, and stop writing DefaultModule from the per-language combo.
+  User's variant (preferred, 2026-11-18): a check box under the synthesizer, "Use for
+  other languages too". Checked when the selected synthesizer is DefaultModule; checking
+  sets DefaultModule. Unchecking has no meaning (some module must be the default), so the
+  box can't be unchecked; its label names the current default ("now: teratts") so the user
+  sees where to go.
 - **Order (user, 2026-11-17):** 1) the Firefox extension, plus patches for Firefox itself
   proposed upstream (its speechd backend: speechd defaults, per-language voice);
   2) then the third voice source (sherpa models). Also: mirror all downloadable voices
