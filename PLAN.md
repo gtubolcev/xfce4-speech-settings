@@ -665,6 +665,15 @@ Three goals, in this order:
   Readability is fine to start with, but many sites have no reader view, and on some it
   picks menus or side content as the main text: a manual choice of the region (pick a
   block, read from here, selection) must always be there.
+- **Better language detection** (user, 2026-11-17, later): Firefox's
+  browser.i18n.detectLanguage is CLD2 (character n-grams, no dictionary); it fails on
+  short or mixed text (opennet.ru headlines: "ru 57%, sr 18%, unreliable"). Stopgaps now:
+  detection over all the text to read, the last detected language, a Cyrillic letter hint.
+  Candidates to compare on short headlines, mixed pages and close languages (ru/uk/be/bg/sr,
+  de/nl, es/pt): lingua (Apache-2.0; rust with a wasm build, also python: best on short
+  text, big models), fastText lid.176 (model CC-BY-SA, ~1 MB .ftz, fast), CLD3 (Apache-2.0,
+  small NN). Where: in the content script (wasm) or in the native host (python, the models
+  as a package in the PPA). Limit the choice to languages with an installed voice.
 - **"Report a broken page"** (user, 2026-11-17, later; like Consent-O-Matic's "tell the
   authors about a page that doesn't work"): a button in the popup and the panel. It shows
   the user what goes out before sending: the URL, the extension version, which reading
