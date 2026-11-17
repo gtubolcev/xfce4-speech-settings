@@ -149,6 +149,16 @@ Three goals, in this order:
    +fix1, rhvoice +voice1, sherpa-onnx, piper-tts, all modules and models;
    xfce4-speech-settings 0.1.0-5 built, 0.1.0-4 installed.
 
+## Tests to run before each release (user, 2026-11-17)
+- `tests/gui-modules.sh`: click through every synthesizer and look at the screenshots. For each,
+  check which voices are offered and whether the other controls appear as they should: the
+  "Voices…" button, "Keep the synthesizer loaded", the voice type row.
+  First run, 2026-11-17, ru, isolated speechd:
+  - kokoro, sherpa-onnx, sherpa-onnx-vulkan-rs, silero, teratts and vosk all list their voices;
+  - "Voices…" appears only for sherpa;
+  - rhvoice was missing from the list because it had no audio server in the test (it fails
+    its audio init without one). Still to check that it is offered in a real session.
+
 ## Next
 - **Order (user, 2026-11-17):** 1) the Firefox extension, plus patches for Firefox itself
   proposed upstream (its speechd backend: speechd defaults, per-language voice);
