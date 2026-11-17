@@ -156,7 +156,7 @@ Three goals, in this order:
 - **Universal voice manager** (user, 2026-11-16: "сделать загрузчик (менеджер) голосов более
   универсальным, с выбором того, для какого движка поставить"): see the proposal in the chat of
   that day; the Piper part now downloads from the Piper collection itself (a39dac1).
-- **Language first** (user, 2026-11-11: "ставим первым в GUI (и логически) именно язык, и уже
+- **Language first — done** (user, 2026-11-17: "уже сделано"). (user, 2026-11-11: "ставим первым в GUI (и логически) именно язык, и уже
   к нему привязываем конфигурацию"). The dialog starts with the language; everything that
   speechd can keep per language is set for that language:
   ```
@@ -561,6 +561,9 @@ Three goals, in this order:
   (Supertonic, MMS). Order: the manager first, then the Firefox extension.
   Later (user, postponed): language and engine filters in the manager window, to find
   one's way among all engines and languages. For now one engine: the chosen synthesizer.
+  **Done 2026-11-17** (92fd721): generic window with Piper and RHVoice sources (RHVoice:
+  distro package through PackageKit, else the rhvoice.org catalogue into
+  ~/.local/share/RHVoice, needs rhvoice +voice3). Next source: sherpa models.
 - **Firefox extension, notes** (user, 2026-11-16): study Read Aloud's internals first
   (how it finds the text, site handlers, highlighting), something may be reusable.
   Readability is fine to start with, but many sites have no reader view, and on some it
