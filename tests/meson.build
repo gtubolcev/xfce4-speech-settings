@@ -11,6 +11,10 @@ test_voice_installer = executable(
   'test-voice-installer',
   'test-voice-installer.c',
   '../src/voice-installer.c',
+  '../src/voice-packagekit.c',
+  '../src/voice-source-piper.c',
+  '../src/voice-source-rhvoice.c',
+  '../src/voice-unzip.c',
   include_directories: include_directories('..'),
   dependencies: [gtk, soup, json_glib] + xfce_deps,
 )
