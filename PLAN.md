@@ -158,6 +158,9 @@ Three goals, in this order:
   - "Voices…" appears only for sherpa;
   - rhvoice was missing from the list because it had no audio server in the test (it fails
     its audio init without one). Still to check that it is offered in a real session.
+  - Bug: after a synthesizer with the "Voices…" row (sherpa), the dialog keeps its height, and
+    for every later synthesizer the "Close" button sits partly below the window edge. Either
+    resize to the natural height on every switch, or keep a fixed row for the button.
 
 ## Next
 - **Order (user, 2026-11-17):** 1) the Firefox extension, plus patches for Firefox itself
