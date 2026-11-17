@@ -375,6 +375,10 @@ Three goals, in this order:
      inference-mode BatchNormalization (vocoder) are missing — trivial ops, or rewrite the 3
      nodes in the graph. The real work stays fixed dims (length buckets; Supertonic has masks)
      and the sherpa-onnx plugin EP. Postponed by the user ("не срочно"); ggml/.cpp is stage 2.
+     **UI once it works (user, 2026-11-17):** the synthesizer menu shows only the ONNX
+     entry (sherpa-onnx, not the -vulkan-rs twin); beside it a check box "Offload to the
+     GPU (Vulkan)" picks the Vulkan module. Like "Keep the synthesizer loaded", show the
+     box only when the Vulkan variant is installed (and a Vulkan device exists).
   3. Pilot: one model on ggml, Kokoro through kokoro.cpp (simonfxr, GGUF; see RESEARCH).
      Measure CPU vs onnxruntime, Vulkan on the Vega 8, .121 (HD 620) and the GTX 1060;
      peak RSS, quantised (Q8/Q4) vs f16. Decide from the numbers whether to port
