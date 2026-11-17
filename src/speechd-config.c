@@ -35,12 +35,68 @@
  * are still looked up in the system directory, so a copy of the system file
  * is a complete user configuration (this is also what spd-conf does). */
 
+/* The file may change while the dialog is open (the user, spd-conf, another
+ * program). The dialog therefore keeps its changes as a list of edits, and
+ * speechd_config_save() applies them to the file as it is then, not to the
+ * copy read at the start: lines written by others in between stay. */
+typedef enum
+{
+  EDIT_SET,
+  EDIT_UNSET,
+  EDIT_DETECT_MODULES,
+} EditKind;
+
+typedef struct
+{
+  EditKind  kind;
+  gchar    *key;
+  gchar    *value;
+  gboolean  quote;
+} Edit;
+
 struct _SpeechdConfig
 {
   gchar     *path;
   GPtrArray *lines;
   gboolean   dirty;
+  gchar     *base;      /* the contents the lines were read from */
+  GPtrArray *edits;     /* Edit, since base */
+  gboolean   replaying;
 };
+
+
+
+static void
+edit_free (gpointer data)
+{
+  Edit *edit = data;
+
+  g_free (edit->key);
+  g_free (edit->value);
+  g_free (edit);
+}
+
+
+
+static void
+add_edit (SpeechdConfig *config,
+          EditKind       kind,
+          const gchar   *key,
+          const gchar   *value,
+          gboolean       quote)
+{
+  Edit *edit;
+
+  if (config->replaying)
+    return;
+
+  edit = g_new0 (Edit, 1);
+  edit->kind = kind;
+  edit->key = g_strdup (key);
+  edit->value = g_strdup (value);
+  edit->quote = quote;
+  g_ptr_array_add (config->edits, edit);
+}
 
 
 
@@ -238,6 +294,8 @@ set_line (SpeechdConfig *config,
   gchar *current;
   gint   i;
 
+  add_edit (config, EDIT_SET, key, value, quote);
+
   current = speechd_config_get (config, key);
   if (g_strcmp0 (current, value) == 0)
     {
@@ -268,37 +326,43 @@ set_line (SpeechdConfig *config,
 
 
 
-SpeechdConfig *
-speechd_config_load (GError **error)
+/* The contents Speech Dispatcher would read now: the user's file, or the
+ * system file when there is none (the user file is only written once
+ * something is changed). */
+static gchar *
+read_contents (const gchar *path,
+               GError     **error)
 {
-  SpeechdConfig *config;
-  gchar         *contents = NULL;
-  gchar        **lines;
-  guint          i, n;
+  gchar *contents = NULL;
 
-  config = g_new0 (SpeechdConfig, 1);
-  config->path = g_build_filename (g_get_user_config_dir (),
-                                   "speech-dispatcher", "speechd.conf", NULL);
-  config->lines = g_ptr_array_new_with_free_func (g_free);
-
-  if (g_file_test (config->path, G_FILE_TEST_EXISTS))
+  if (g_file_test (path, G_FILE_TEST_EXISTS))
     {
-      if (!g_file_get_contents (config->path, &contents, NULL, error))
-        {
-          speechd_config_free (config);
-          return NULL;
-        }
+      if (!g_file_get_contents (path, &contents, NULL, error))
+        return NULL;
     }
   else
     {
       gchar *system_path;
 
-      /* the user file is only written once something is changed */
       system_path = g_build_filename (SPEECHD_SYSCONFDIR, "speechd.conf", NULL);
       if (!g_file_get_contents (system_path, &contents, NULL, NULL))
         contents = g_strdup ("");
       g_free (system_path);
     }
+
+  return contents;
+}
+
+
+
+static void
+set_contents (SpeechdConfig *config,
+              gchar         *contents)
+{
+  gchar **lines;
+  guint   i, n;
+
+  g_ptr_array_set_size (config->lines, 0);
 
   lines = g_strsplit (contents, "\n", -1);
   n = g_strv_length (lines);
@@ -311,7 +375,31 @@ speechd_config_load (GError **error)
     g_ptr_array_add (config->lines, g_strdup (lines[i]));
 
   g_strfreev (lines);
-  g_free (contents);
+  g_free (config->base);
+  config->base = contents;
+}
+
+
+
+SpeechdConfig *
+speechd_config_load (GError **error)
+{
+  SpeechdConfig *config;
+  gchar         *contents;
+
+  config = g_new0 (SpeechdConfig, 1);
+  config->path = g_build_filename (g_get_user_config_dir (),
+                                   "speech-dispatcher", "speechd.conf", NULL);
+  config->lines = g_ptr_array_new_with_free_func (g_free);
+  config->edits = g_ptr_array_new_with_free_func (edit_free);
+
+  contents = read_contents (config->path, error);
+  if (contents == NULL)
+    {
+      speechd_config_free (config);
+      return NULL;
+    }
+  set_contents (config, contents);
 
   return config;
 }
@@ -325,6 +413,8 @@ speechd_config_free (SpeechdConfig *config)
     return;
 
   g_ptr_array_unref (config->lines);
+  g_ptr_array_unref (config->edits);
+  g_free (config->base);
   g_free (config->path);
   g_free (config);
 }
@@ -429,6 +519,8 @@ speechd_config_unset (SpeechdConfig *config,
 {
   gint i;
 
+  add_edit (config, EDIT_UNSET, key, NULL, FALSE);
+
   while ((i = find_active (config, key)) >= 0)
     {
       gchar *line = g_ptr_array_index (config->lines, i);
@@ -446,17 +538,62 @@ speechd_config_unset (SpeechdConfig *config,
 
 
 
+static void
+replay_edits (SpeechdConfig *config)
+{
+  guint i;
+
+  config->replaying = TRUE;
+  for (i = 0; i < config->edits->len; i++)
+    {
+      Edit *edit = g_ptr_array_index (config->edits, i);
+
+      switch (edit->kind)
+        {
+        case EDIT_SET:
+          set_line (config, edit->key, edit->value, edit->quote);
+          break;
+        case EDIT_UNSET:
+          speechd_config_unset (config, edit->key);
+          break;
+        case EDIT_DETECT_MODULES:
+          /* it worked on the old contents; if not on these, keep them */
+          speechd_config_use_detected_modules (config, NULL);
+          break;
+        }
+    }
+  config->replaying = FALSE;
+  /* the user's edits are still to be written, even where the other
+   * writer made the same change */
+  config->dirty = TRUE;
+}
+
+
+
 gboolean
 speechd_config_save (SpeechdConfig *config,
                      GError       **error)
 {
   GString *contents;
   gchar   *dirname;
+  gchar   *current;
   guint    i;
   gboolean ok;
 
   if (!config->dirty)
     return TRUE;
+
+  /* changed by someone else since it was read: apply our edits to that */
+  current = read_contents (config->path, error);
+  if (current == NULL)
+    return FALSE;
+  if (strcmp (current, config->base) != 0)
+    {
+      set_contents (config, current);
+      replay_edits (config);
+    }
+  else
+    g_free (current);
 
   dirname = g_path_get_dirname (config->path);
   if (g_mkdir_with_parents (dirname, 0700) != 0)
@@ -478,10 +615,16 @@ speechd_config_save (SpeechdConfig *config,
     }
 
   ok = g_file_set_contents (config->path, contents->str, contents->len, error);
-  g_string_free (contents, TRUE);
 
   if (ok)
-    config->dirty = FALSE;
+    {
+      config->dirty = FALSE;
+      g_free (config->base);
+      config->base = g_string_free (contents, FALSE);
+      g_ptr_array_set_size (config->edits, 0);
+    }
+  else
+    g_string_free (contents, TRUE);
 
   return ok;
 }
@@ -748,8 +891,16 @@ speechd_config_use_detected_modules (SpeechdConfig *config,
       g_free (contents);
     }
 
-  speechd_config_unset (config, "AddModule");
-  foreach_option (config, TRUE, rename_modules, &data);
+  {
+    /* one edit for the whole step, not its parts */
+    gboolean replaying = config->replaying;
+
+    config->replaying = TRUE;
+    speechd_config_unset (config, "AddModule");
+    foreach_option (config, TRUE, rename_modules, &data);
+    config->replaying = replaying;
+  }
+  add_edit (config, EDIT_DETECT_MODULES, NULL, NULL, FALSE);
   ok = TRUE;
 
 out:

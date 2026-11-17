@@ -350,6 +350,68 @@ test_module_variant (void)
 
 
 
+/* The file changes on disk while the dialog has it open: saving applies the
+ * dialog's edits to the new contents and keeps the other writer's lines. */
+static void
+test_changed_on_disk (void)
+{
+  gchar         *dir = setup_config_home ();
+  gchar         *conf_dir, *path, *contents, *outside;
+  SpeechdConfig *config;
+
+  conf_dir = g_build_filename (dir, "speech-dispatcher", NULL);
+  path = g_build_filename (conf_dir, "speechd.conf", NULL);
+  g_mkdir_with_parents (conf_dir, 0700);
+  g_assert_true (g_file_set_contents (path,
+                                      "DefaultModule \"vosk\"\n"
+                                      "DefaultLanguage \"ru\"\n"
+                                      "DefaultRate 10\n", -1, NULL));
+
+  config = speechd_config_load (NULL);
+  g_assert_nonnull (config);
+
+  /* someone else adds lines and changes a key the dialog does not touch */
+  outside = g_strconcat ("DefaultModule \"sherpa-onnx\"\n"
+                         "DefaultLanguage \"ru\"\n"
+                         "DefaultRate 10\n"
+                         "LanguageDefaultModule \"de\" \"sherpa-onnx\"\n", NULL);
+  g_assert_true (g_file_set_contents (path, outside, -1, NULL));
+
+  /* the dialog changes the language and drops the rate */
+  speechd_config_set (config, "DefaultLanguage", "de");
+  speechd_config_unset (config, "DefaultRate");
+  g_assert_true (speechd_config_save (config, NULL));
+
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==,
+                   "DefaultModule \"sherpa-onnx\"\n"
+                   "DefaultLanguage \"de\"\n"
+                   "# DefaultRate 10\n"
+                   "LanguageDefaultModule \"de\" \"sherpa-onnx\"\n");
+  g_free (contents);
+
+  /* the edits were written: a later change outside is not undone by them */
+  g_assert_true (g_file_set_contents (path,
+                                      "DefaultModule \"sherpa-onnx\"\n"
+                                      "DefaultLanguage \"en\"\n", -1, NULL));
+  speechd_config_set_int (config, "DefaultPitch", 5);
+  g_assert_true (speechd_config_save (config, NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==,
+                   "DefaultModule \"sherpa-onnx\"\n"
+                   "DefaultLanguage \"en\"\n"
+                   "DefaultPitch 5\n");
+  g_free (contents);
+
+  speechd_config_free (config);
+  g_free (outside);
+  g_free (path);
+  g_free (conf_dir);
+  cleanup_config_home (dir);
+}
+
+
+
 int
 main (int    argc,
       char **argv)
@@ -362,6 +424,7 @@ main (int    argc,
   g_test_add_func ("/config/detect-modules", test_detect_modules);
   g_test_add_func ("/config/module-option", test_module_option);
   g_test_add_func ("/config/module-variant", test_module_variant);
+  g_test_add_func ("/config/changed-on-disk", test_changed_on_disk);
 
   return g_test_run ();
 }
