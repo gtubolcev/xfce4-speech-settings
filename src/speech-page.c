@@ -1155,7 +1155,8 @@ speech_page_sync_preload (SpeechPage *page)
       gboolean updating = page->updating;
 
       page->updating = TRUE;
-      gtk_widget_set_sensitive (page->preload_check, supported);
+      /* the others load fast enough: nothing to offer */
+      gtk_widget_set_visible (page->preload_check, supported);
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (page->preload_check),
                                     page->preload && supported);
       page->updating = updating;
@@ -2073,6 +2074,7 @@ speech_page_new (void)
                                  "first message is spoken sooner. Otherwise "
                                  "it is loaded with the first message and "
                                  "freed after five minutes without speech."));
+  gtk_widget_set_no_show_all (page->preload_check, TRUE);
   gtk_grid_attach (GTK_GRID (grid), page->preload_check, 1, 4, 1, 1);
   speech_page_load_preload (page);
   speech_page_sync_preload (page);
