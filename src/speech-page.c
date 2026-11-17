@@ -41,6 +41,10 @@
 #define LANGUAGE_DELAY_MS 500
 /* time the server needs to restart its modules after a reload */
 #define REFILL_DELAY_MS 1500
+/* a module still starting lists no voices: ask again this often, this many
+ * times (sherpa-onnx with a preloaded model needs several seconds) */
+#define RETRY_DELAY_MS 1000
+#define RETRY_MAX 20
 /* Built-in defaults of Speech Dispatcher, used when a key is not set */
 #define DEFAULT_LANGUAGE "en-US"
 /* the test text grows up to this many lines, then scrolls */
@@ -199,6 +203,7 @@ typedef struct
   guint          language_id;
   gchar         *typed_language;
   guint          refill_id;
+  guint          refill_tries;  /* refills in a row that found no voices */
   guint          fit_id;        /* fits test_view's height to its text */
   /* the server the module list came from (its socket), see
    * speech_page_server_changed */
@@ -799,6 +804,27 @@ speech_page_load_voices (SpeechPage *page)
   page->voices = spd_list_synthesis_voices (page->connection);
 }
 
+static gboolean speech_page_refill_modules (gpointer data);
+
+/* No voices from the selected module: it is most likely still starting after
+ * a reload (ours or anyone's). Read everything again in a moment, as the
+ * module list and languages came from the same half-started server. */
+static void
+speech_page_retry_if_empty (SpeechPage *page)
+{
+  if (page->connection == NULL
+      || (page->voices != NULL && page->voices[0] != NULL))
+    {
+      page->refill_tries = 0;
+      return;
+    }
+  if (page->refill_id != 0 || page->refill_tries >= RETRY_MAX)
+    return;
+  page->refill_tries++;
+  page->refill_id = g_timeout_add (RETRY_DELAY_MS,
+                                   speech_page_refill_modules, page);
+}
+
 
 
 static gboolean
@@ -1305,6 +1331,7 @@ speech_page_module_changed (GtkComboBox *combo,
 
   speech_page_load_voices (page);
   speech_page_update_voices (page);
+  speech_page_retry_if_empty (page);
   speech_page_sync_preload (page);
   speech_page_sync_voices_button (page);
 }
@@ -1421,10 +1448,14 @@ speech_page_apply_language (gpointer data)
   speech_page_store_language (page, language);
   speech_page_update_test_text (page, *language != '\0' ? language : DEFAULT_LANGUAGE);
 
+  /* the synthesizer may change with the language: its "changed" handler is
+   * blocked here, so read the voices of the one now selected */
   page->updating = TRUE;
   speech_page_fill_modules (page);
   page->updating = FALSE;
+  speech_page_load_voices (page);
   speech_page_update_voices (page);
+  speech_page_retry_if_empty (page);
   speech_page_sync_preload (page);
   speech_page_sync_voices_button (page);
 
@@ -1539,6 +1570,7 @@ speech_page_refill_modules (gpointer data)
   }
   page->updating = FALSE;
   speech_page_update_voices (page);
+  speech_page_retry_if_empty (page);
 
   return G_SOURCE_REMOVE;
 }
