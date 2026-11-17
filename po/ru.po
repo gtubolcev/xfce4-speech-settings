@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: xfce4-speech-settings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 23:06+0100\n"
+"POT-Creation-Date: 2026-11-17 01:17+0100\n"
 "PO-Revision-Date: 2026-11-12 01:40+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: Russian\n"
@@ -54,134 +54,134 @@ msgstr "Информация о версии"
 msgid "Type '%s --help' for usage."
 msgstr "Введите «%s --help» для получения справки."
 
-#: src/main.c:159 src/main.c:161 src/voice-installer.c:1590
+#: src/main.c:159 src/main.c:161 src/voice-installer.c:1181
 msgid "_Close"
 msgstr "_Закрыть"
 
-#: src/speech-page.c:62
+#: src/speech-page.c:58
 msgid "Male 1"
 msgstr "Мужской 1"
 
-#: src/speech-page.c:63
+#: src/speech-page.c:59
 msgid "Male 2"
 msgstr "Мужской 2"
 
-#: src/speech-page.c:64
+#: src/speech-page.c:60
 msgid "Male 3"
 msgstr "Мужской 3"
 
-#: src/speech-page.c:65
+#: src/speech-page.c:61
 msgid "Female 1"
 msgstr "Женский 1"
 
-#: src/speech-page.c:66
+#: src/speech-page.c:62
 msgid "Female 2"
 msgstr "Женский 2"
 
-#: src/speech-page.c:67
+#: src/speech-page.c:63
 msgid "Female 3"
 msgstr "Женский 3"
 
-#: src/speech-page.c:68
+#: src/speech-page.c:64
 msgid "Child, male"
 msgstr "Детский, мужской"
 
-#: src/speech-page.c:69
+#: src/speech-page.c:65
 msgid "Child, female"
 msgstr "Детский, женский"
 
-#: src/speech-page.c:74
+#: src/speech-page.c:70
 msgid "None"
 msgstr "Не произносить"
 
-#: src/speech-page.c:75
+#: src/speech-page.c:71
 msgid "Some"
 msgstr "Некоторые"
 
-#: src/speech-page.c:76
+#: src/speech-page.c:72
 msgid "Most"
 msgstr "Большинство"
 
-#: src/speech-page.c:77
+#: src/speech-page.c:73
 msgid "All"
 msgstr "Все"
 
-#: src/speech-page.c:87
+#: src/speech-page.c:83
 msgid "Do nothing"
 msgstr "Ничего не делать"
 
-#: src/speech-page.c:88
+#: src/speech-page.c:84
 msgid "Say “capital”"
 msgstr "Говорить «заглавная»"
 
-#: src/speech-page.c:89
+#: src/speech-page.c:85
 msgid "Play a sound"
 msgstr "Подавать звуковой сигнал"
 
-#: src/speech-page.c:100
+#: src/speech-page.c:96
 msgid "Automatic"
 msgstr "Автоматически"
 
-#: src/speech-page.c:246 src/speech-page.c:1608
+#: src/speech-page.c:242 src/speech-page.c:1627
 #, c-format
 msgid "Failed to apply the settings: %s"
 msgstr "Не удалось применить настройки: %s"
 
-#: src/speech-page.c:439
+#: src/speech-page.c:435
 msgid "Normal"
 msgstr "Обычно"
 
-#: src/speech-page.c:503
+#: src/speech-page.c:499
 #, c-format
 msgid "Cannot connect to Speech Dispatcher: %s"
 msgstr "Не удаётся подключиться к Speech Dispatcher: %s"
 
-#: src/speech-page.c:504
+#: src/speech-page.c:500 src/voice-packagekit.c:172
 msgid "unknown error"
 msgstr "неизвестная ошибка"
 
 #. TRANSLATORS: a synthesizer without a voice for the language
-#: src/speech-page.c:694
+#: src/speech-page.c:690
 #, c-format
 msgid "%s (no voice)"
 msgstr "%s (нет голоса)"
 
-#: src/speech-page.c:1006
+#: src/speech-page.c:1002
 msgid "The synthesizer has no voice for this language"
 msgstr "У синтезатора нет голоса для этого языка"
 
-#: src/speech-page.c:1010
+#: src/speech-page.c:1006
 msgid "This synthesizer chooses its voice by the voice type"
 msgstr "Этот синтезатор выбирает голос по типу голоса"
 
-#: src/speech-page.c:1014
+#: src/speech-page.c:1010
 msgid "The voice for this language, kept in the synthesizer's settings"
 msgstr "Голос для этого языка, хранится в настройках синтезатора"
 
-#: src/speech-page.c:1063
+#: src/speech-page.c:1059
 #, c-format
 msgid "Failed to save the setting: %s"
 msgstr "Не удалось сохранить настройку: %s"
 
-#: src/speech-page.c:1220
+#: src/speech-page.c:1234
 #, c-format
 msgid "Failed to save the voice: %s"
 msgstr "Не удалось сохранить голос: %s"
 
-#: src/speech-page.c:1681
+#: src/speech-page.c:1700
 msgid "Speech Dispatcher did not accept the text."
 msgstr "Speech Dispatcher не принял текст."
 
-#: src/speech-page.c:1965
+#: src/speech-page.c:1984
 #, c-format
 msgid "Failed to read the settings: %s"
 msgstr "Не удалось прочитать настройки: %s"
 
-#: src/speech-page.c:1975
+#: src/speech-page.c:1994
 msgid "_Use All"
 msgstr "_Использовать все"
 
-#: src/speech-page.c:1979
+#: src/speech-page.c:1998
 msgid ""
 "Your settings list the synthesizers to load, so synthesizers installed later "
 "are not offered. Use all installed synthesizers?"
@@ -190,12 +190,11 @@ msgstr ""
 "установленные позже не предлагаются. Использовать все установленные "
 "синтезаторы?"
 
-#. Voice
-#: src/speech-page.c:1999 src/voice-installer.c:1624
+#: src/speech-page.c:2018 src/voice-installer.c:1214
 msgid "Voice"
 msgstr "Голос"
 
-#: src/speech-page.c:2008
+#: src/speech-page.c:2027
 msgid ""
 "Language code like “en-US” or “ru”. Most applications set the language "
 "themselves."
@@ -203,11 +202,11 @@ msgstr ""
 "Код языка, например «ru» или «en-US». Большинство приложений задают язык "
 "сами."
 
-#: src/speech-page.c:2010 src/voice-installer.c:1606
+#: src/speech-page.c:2029 src/voice-installer.c:1195
 msgid "_Language:"
 msgstr "_Язык:"
 
-#: src/speech-page.c:2018
+#: src/speech-page.c:2037
 msgid ""
 "The speech synthesizer used when an application does not ask for another "
 "one. Only the ones with a voice for the language are offered."
@@ -215,27 +214,27 @@ msgstr ""
 "Синтезатор речи, который используется, если приложение не выбрало другой. "
 "Предлагаются только синтезаторы с голосом для этого языка."
 
-#: src/speech-page.c:2022
+#: src/speech-page.c:2041
 msgid "_Synthesizer:"
 msgstr "_Синтезатор:"
 
-#: src/speech-page.c:2031
+#: src/speech-page.c:2050
 msgid "_Voice:"
 msgstr "_Голос:"
 
-#: src/speech-page.c:2038
+#: src/speech-page.c:2057
 msgid "The synthesizer maps these types to its own voices"
 msgstr "Синтезатор сопоставляет эти типы со своими голосами"
 
-#: src/speech-page.c:2040
+#: src/speech-page.c:2059
 msgid "Voice _type:"
 msgstr "_Тип голоса:"
 
-#: src/speech-page.c:2050
+#: src/speech-page.c:2069
 msgid "_Keep the synthesizer loaded"
 msgstr "_Держать синтезатор загруженным"
 
-#: src/speech-page.c:2052
+#: src/speech-page.c:2071
 msgid ""
 "Load the synthesizer when the speech server starts and keep it in memory: "
 "the first message is spoken sooner. Otherwise it is loaded with the first "
@@ -245,77 +244,75 @@ msgstr ""
 "первое сообщение прозвучит быстрее. Иначе он загружается с первым сообщением "
 "и выгружается после пяти минут без речи."
 
-#: src/speech-page.c:2063
-msgid "_Piper Voices…"
-msgstr "_Голоса Piper…"
+#: src/speech-page.c:2082
+msgid "_Voices…"
+msgstr "_Голоса…"
 
-#: src/speech-page.c:2065
-msgid "Download more voices for the synthesizer sherpa-onnx"
-msgstr "Скачать ещё голоса для синтезатора sherpa-onnx"
+#: src/speech-page.c:2084
+msgid "Download more voices for this synthesizer"
+msgstr "Скачать ещё голоса для этого синтезатора"
 
-#: src/speech-page.c:2077
+#: src/speech-page.c:2094
 msgid "_Rate:"
 msgstr "С_корость:"
 
-#: src/speech-page.c:2078
+#: src/speech-page.c:2095
 msgid "Slower"
 msgstr "Медленнее"
 
-#: src/speech-page.c:2078
+#: src/speech-page.c:2095
 msgid "Faster"
 msgstr "Быстрее"
 
-#: src/speech-page.c:2080
+#: src/speech-page.c:2097
 msgid "_Pitch:"
 msgstr "_Высота:"
 
-#: src/speech-page.c:2081
+#: src/speech-page.c:2098
 msgid "Lower"
 msgstr "Ниже"
 
-#: src/speech-page.c:2081
+#: src/speech-page.c:2098
 msgid "Higher"
 msgstr "Выше"
 
-#: src/speech-page.c:2083
+#: src/speech-page.c:2100
 msgid "_Volume:"
 msgstr "Гро_мкость:"
 
-#: src/speech-page.c:2084
+#: src/speech-page.c:2101
 msgid "Quieter"
 msgstr "Тише"
 
-#: src/speech-page.c:2084
+#: src/speech-page.c:2101
 msgid "Louder"
 msgstr "Громче"
 
-#. Reading
-#: src/speech-page.c:2087
+#: src/speech-page.c:2104
 msgid "Reading"
 msgstr "Чтение"
 
-#: src/speech-page.c:2091
+#: src/speech-page.c:2108
 msgid "P_unctuation:"
 msgstr "_Знаки препинания:"
 
-#: src/speech-page.c:2098
+#: src/speech-page.c:2115
 msgid "_Capital letters:"
 msgstr "_Заглавные буквы:"
 
-#: src/speech-page.c:2106
+#: src/speech-page.c:2123
 msgid "_Output:"
 msgstr "_Вывод:"
 
-#. Test
-#: src/speech-page.c:2111
+#: src/speech-page.c:2128
 msgid "Test"
 msgstr "Проверка"
 
-#: src/speech-page.c:2126 src/speech-page.c:2128
+#: src/speech-page.c:2143 src/speech-page.c:2145
 msgid "This is how your computer speaks."
 msgstr "Так говорит ваш компьютер."
 
-#: src/speech-page.c:2133
+#: src/speech-page.c:2150
 msgid ""
 "Ctrl+Enter speaks the text. Most Russian voices take \"+\" before a vowel as "
 "its stress: зам+ок."
@@ -323,131 +320,98 @@ msgstr ""
 "Ctrl+Enter произносит текст. Большинство русских голосов понимает «+» перед "
 "гласной как ударение: зам+ок."
 
-#: src/speech-page.c:2148
+#: src/speech-page.c:2165
 msgid "Te_xt:"
 msgstr "Те_кст:"
 
-#: src/speech-page.c:2169
+#: src/speech-page.c:2186
 msgid "_Speak"
 msgstr "_Произнести"
 
-#: src/speech-page.c:2174
+#: src/speech-page.c:2191
 msgid "S_top"
 msgstr "_Остановить"
 
-#: src/voice-installer.c:202
+#: src/voice-installer.c:109
 msgid "Installed"
 msgstr "Установлен"
 
-#: src/voice-installer.c:204
+#: src/voice-installer.c:111
 msgid "Installed with the system"
 msgstr "Установлен в системе"
 
-#: src/voice-installer.c:206
+#: src/voice-installer.c:113
 msgid "Available"
 msgstr "Можно скачать"
 
-#: src/voice-installer.c:443
-msgid "not stated"
-msgstr "не указана"
-
-#: src/voice-installer.c:471
-msgid "Licence: not stated"
-msgstr "Лицензия: не указана"
-
-#: src/voice-installer.c:478
+#: src/voice-installer.c:354
 #, c-format
 msgid "Licence: %s"
 msgstr "Лицензия: %s"
 
-#: src/voice-installer.c:489
-msgid "Licence: …"
-msgstr "Лицензия: …"
-
-#: src/voice-installer.c:683
+#: src/voice-installer.c:526
 msgid "All languages"
 msgstr "Все языки"
 
-#: src/voice-installer.c:721
+#: src/voice-installer.c:569 src/voice-source-piper.c:392
+#: src/voice-source-rhvoice.c:503
 msgid "The list of voices is damaged"
 msgstr "Список голосов повреждён"
 
-#: src/voice-installer.c:737
+#: src/voice-installer.c:584
 msgid "The list of voices is empty"
 msgstr "Список голосов пуст"
 
-#: src/voice-installer.c:795
+#: src/voice-installer.c:647
 msgid "The list of voices is too big"
 msgstr "Список голосов слишком велик"
 
-#: src/voice-installer.c:812
+#: src/voice-installer.c:664
 msgid "The list of voices could not be updated; an older one is shown."
 msgstr "Не удалось обновить список голосов; показан прежний."
 
-#: src/voice-installer.c:816
+#: src/voice-installer.c:668
 #, c-format
 msgid "The list of voices could not be loaded: %s"
 msgstr "Не удалось загрузить список голосов: %s"
 
-#: src/voice-installer.c:840
+#: src/voice-installer.c:693
 msgid "Loading the list of voices…"
 msgstr "Загрузка списка голосов…"
 
-#: src/voice-installer.c:875
+#: src/voice-installer.c:769
+msgid "the download was cut short"
+msgstr "загрузка оборвалась"
+
+#: src/voice-installer.c:779 src/voice-installer.c:821
+#: src/voice-source-piper.c:684
+msgid "the download is too big"
+msgstr "загрузка слишком велика"
+
+#: src/voice-installer.c:832
+msgid "Downloading…"
+msgstr "Загрузка…"
+
+#: src/voice-installer.c:875 src/voice-installer.c:943
+#: src/voice-source-piper.c:761
+msgid "Connecting…"
+msgstr "Соединение…"
+
+#: src/voice-installer.c:904
 #, c-format
 msgid "The voice could not be installed: %s"
 msgstr "Не удалось установить голос: %s"
 
-#: src/voice-installer.c:908
-msgid ""
-"the espeak-ng data of Piper is missing; install the package piper-espeak-ng-"
-"data"
-msgstr "нет данных espeak-ng для Piper; установите пакет piper-espeak-ng-data"
-
-#: src/voice-installer.c:915
-msgid "the voice is installed already"
-msgstr "голос уже установлен"
-
-#: src/voice-installer.c:954
-msgid "the download was cut short"
-msgstr "загрузка оборвалась"
-
-#: src/voice-installer.c:957 src/voice-installer.c:1272
-msgid "the download is damaged (wrong checksum)"
-msgstr "загрузка повреждена (не совпала контрольная сумма)"
-
-#: src/voice-installer.c:998 src/voice-installer.c:1057
-#: src/voice-installer.c:1265
-msgid "the download is too big"
-msgstr "загрузка слишком велика"
-
-#: src/voice-installer.c:1068
-msgid "Downloading…"
-msgstr "Загрузка…"
-
-#: src/voice-installer.c:1175
-#, c-format
-msgid "this voice uses \"%s\" phonemes, which are not supported yet"
-msgstr "голос использует фонемы «%s», они пока не поддерживаются"
-
-#: src/voice-installer.c:1236
-msgid "the settings of the voice cannot be read"
-msgstr "не удаётся прочитать настройки голоса"
-
-#: src/voice-installer.c:1372
-msgid "Connecting…"
-msgstr "Соединение…"
-
-#: src/voice-installer.c:1413
+#: src/voice-installer.c:975
 #, c-format
 msgid "The voice could not be removed: %s"
 msgstr "Не удалось удалить голос: %s"
 
-#: src/voice-installer.c:1499
+#: src/voice-installer.c:1082
 msgid "Stop installing the voice?"
 msgstr "Прервать установку голоса?"
 
-#: src/voice-installer.c:1501
+#: src/voice-installer.c:1084
 msgid ""
 "The voice is still being downloaded. If the window is closed, the download "
 "stops and the voice is not installed."
@@ -455,46 +419,132 @@ msgstr ""
 "Голос ещё скачивается. Если закрыть окно, загрузка прервётся и голос не "
 "будет установлен."
 
-#: src/voice-installer.c:1505
+#: src/voice-installer.c:1088
 msgid "_Continue Downloading"
 msgstr "_Продолжить загрузку"
 
-#: src/voice-installer.c:1506
+#: src/voice-installer.c:1089
 msgid "_Stop and Close"
 msgstr "П_рервать и закрыть"
 
-#: src/voice-installer.c:1586
-msgid "Piper Voices"
-msgstr "Голоса Piper"
-
-#: src/voice-installer.c:1588
+#: src/voice-installer.c:1179
 msgid "_Remove"
 msgstr "_Удалить"
 
-#: src/voice-installer.c:1589
+#: src/voice-installer.c:1180
 msgid "_Install"
 msgstr "_Установить"
 
-#: src/voice-installer.c:1597
+#: src/voice-installer.c:1213
+msgid "Language"
+msgstr "Язык"
+
+#: src/voice-installer.c:1219
+msgid "Size"
+msgstr "Размер"
+
+#: src/voice-installer.c:1220
+msgid "State"
+msgstr "Состояние"
+
+#: src/voice-source-piper.c:221 src/voice-source-piper.c:246
+#: src/voice-source-rhvoice.c:564
+msgid "not stated"
+msgstr "не указана"
+
+#: src/voice-source-piper.c:447
+msgid ""
+"the espeak-ng data of Piper is missing; install the package piper-espeak-ng-"
+"data"
+msgstr "нет данных espeak-ng для Piper; установите пакет piper-espeak-ng-data"
+
+#: src/voice-source-piper.c:454
+msgid "the voice is installed already"
+msgstr "голос уже установлен"
+
+#: src/voice-source-piper.c:491 src/voice-source-piper.c:691
+#: src/voice-source-rhvoice.c:737
+msgid "the download is damaged (wrong checksum)"
+msgstr "загрузка повреждена (не совпала контрольная сумма)"
+
+#: src/voice-source-piper.c:593
+#, c-format
+msgid "this voice uses \"%s\" phonemes, which are not supported yet"
+msgstr "голос использует фонемы «%s», они пока не поддерживаются"
+
+#: src/voice-source-piper.c:654
+msgid "the settings of the voice cannot be read"
+msgstr "не удаётся прочитать настройки голоса"
+
+#: src/voice-source-piper.c:796
+msgid "Piper Voices"
+msgstr "Голоса Piper"
+
+#: src/voice-source-piper.c:797
 msgid ""
 "Download the voice from the Piper voice collection and install it for you"
 msgstr "Скачать голос из коллекции голосов Piper и установить его для вас"
 
-#: src/voice-installer.c:1623
-msgid "Language"
-msgstr "Язык"
-
-#: src/voice-installer.c:1625
+#: src/voice-source-piper.c:799
 msgid "Quality"
 msgstr "Качество"
 
-#: src/voice-installer.c:1626
-msgid "Size"
-msgstr "Размер"
+#: src/voice-source-rhvoice.c:692
+#, c-format
+msgid "%s is missing in the archive"
+msgstr "в архиве нет %s"
 
-#: src/voice-installer.c:1627
-msgid "State"
-msgstr "Состояние"
+#: src/voice-source-rhvoice.c:743
+msgid "Unpacking…"
+msgstr "Распаковка…"
+
+#: src/voice-source-rhvoice.c:791
+msgid ""
+"the distribution has no package for this voice, and its RHVoice cannot use "
+"voices installed for you"
+msgstr "в дистрибутиве нет пакета с этим голосом, а его RHVoice не умеет пользоваться голосами, установленными для вас"
+
+#: src/voice-source-rhvoice.c:859
+#, c-format
+msgid "Looking for the package %s…"
+msgstr "Поиск пакета %s…"
+
+#: src/voice-source-rhvoice.c:939
+msgid "RHVoice Voices"
+msgstr "Голоса RHVoice"
+
+#: src/voice-source-rhvoice.c:940
+msgid ""
+"Install the voice from the distribution or from the RHVoice voice collection"
+msgstr "Установить голос из дистрибутива или из коллекции голосов RHVoice"
+
+#: src/voice-packagekit.c:163 src/voice-packagekit.c:396
+msgid "Cancelled"
+msgstr "Отменено"
+
+#: src/voice-packagekit.c:169
+#, c-format
+msgid "the package %s could not be installed: %s"
+msgstr "не удалось установить пакет %s: %s"
+
+#: src/voice-packagekit.c:304
+msgid "PackageKit is not available"
+msgstr "PackageKit недоступен"
+
+#: src/voice-packagekit.c:364
+msgid "PackageKit stopped"
+msgstr "PackageKit остановился"
+
+#: src/voice-unzip.c:88
+#, c-format
+msgid "the archive is damaged or not supported (%s)"
+msgstr "архив повреждён или не поддерживается (%s)"
+
+#~ msgid "Licence: not stated"
+#~ msgstr "Лицензия: не указана"
+
+#~ msgid "Licence: …"
+#~ msgstr "Лицензия: …"
 
 #~ msgid "Audio"
 #~ msgstr "Звук"

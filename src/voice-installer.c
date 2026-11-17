@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Grigory Tuboltsev <gtubolcev@gmail.com>
+ * Copyright (C) 2026 Grigory Tuboltsev
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,21 +17,10 @@
  */
 
 /*
- * Installs Piper voices for the synthesizer sherpa-onnx into
- * ~/.local/share/sherpa-onnx/tts, where sd_sherpa-onnx finds them.
- *
- * The list of voices is voices.json of the Piper voice collection
- * (rhasspy/piper-voices on Hugging Face), kept a week in ~/.cache; the
- * licence of a voice is the "License:" line of its MODEL_CARD there. The
- * voice itself (<key>.onnx and <key>.onnx.json) comes from there too, checked
- * against the MD5 sums of voices.json, and is made into the form sherpa-onnx
- * reads the way its scripts/piper/add_meta_data.py does: tokens.txt from the
- * phoneme map, the metadata appended to the model, espeak-ng-data a link to
- * the shared copy of the piper-espeak-ng-data package.
- *
- * Everything is written into a hidden directory next to the voices and only
- * renamed into place when whole, so a half-installed voice is never seen by
- * the synthesizer.
+ * The window that installs more voices for a synthesizer. What the voices
+ * are and how one is installed is the business of the source of that
+ * synthesizer (voice-source-*.c); here are the list, the buttons, the
+ * catalogue (kept a week in ~/.cache) and downloading.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -41,7 +30,6 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include <glib/gstdio.h>
 #ifdef HAVE_XFCE
@@ -51,28 +39,17 @@
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
 #endif
-#include <json-glib/json-glib.h>
-#include <libsoup/soup.h>
 
-#include "voice-installer.h"
-
-#define CATALOGUE_URL "https://huggingface.co/rhasspy/piper-voices/resolve/main/voices.json"
-#define COLLECTION_URL "https://huggingface.co/rhasspy/piper-voices/resolve/main/"
-#define SYSTEM_DIR "/usr/share/sherpa-onnx/tts"
-#define SHARED_ESPEAK_DATA "/usr/share/sherpa-onnx/piper-espeak-ng-data"
+#include "voice-installer-private.h"
 
 /* the list is fetched again after a week */
 #define CATALOGUE_MAX_AGE (7 * G_TIME_SPAN_DAY)
-/* nothing bigger is accepted; the largest voice is about 120 MB */
 #define CATALOGUE_MAX_SIZE (16 * 1024 * 1024)
-#define CARD_MAX_SIZE (64 * 1024)
-#define CONFIG_MAX_SIZE (1024 * 1024)
-#define VOICE_MAX_SIZE ((goffset) 1024 * 1024 * 1024)
 #define CHUNK_SIZE (64 * 1024)
 
 enum
 {
-  COL_KEY,
+  COL_VOICE,       /* of the source, owned by in->voices */
   COL_FAMILY,      /* "ru": the language without the region */
   COL_LANGUAGE,    /* "Russian (Russia)" */
   COL_NAME,
@@ -80,115 +57,45 @@ enum
   COL_SIZE,
   COL_STATE,
   COL_STATE_TEXT,
-  COL_CARD,        /* path of the MODEL_CARD in the collection */
-  COL_ONNX,        /* path of the model in the collection */
-  COL_ONNX_MD5,
-  COL_CONFIG,      /* path of its .onnx.json */
-  COL_CONFIG_MD5,
   N_COLS
 };
 
-typedef enum
+static const VoiceSource *sources[] =
 {
-  STATE_NONE,
-  STATE_USER,      /* in ~/.local/share/sherpa-onnx/tts: can be removed */
-  STATE_SYSTEM     /* from a package */
-} VoiceState;
+  &voice_source_piper,
+  &voice_source_rhvoice,
+};
 
-typedef struct
+
+
+/* The source of @module: "sherpa-onnx" also for "sherpa-onnx-vulkan-rs" */
+static const VoiceSource *
+find_source (const gchar *module)
 {
-  /* the dialog is gone, but an operation still holds a reference */
-  gboolean               closed;
-  gint                   refs;
+  guint i;
 
-  GtkWidget             *dialog;
-  GtkWidget             *language_combo;
-  GtkWidget             *view;
-  GtkWidget             *install_button;
-  GtkWidget             *remove_button;
-  GtkWidget             *progress;
-  GtkWidget             *status_label;
-  GtkWidget             *licence_label;
-  GtkListStore          *store;
-  GtkTreeModel          *filter;
+  if (module == NULL)
+    return NULL;
 
-  SoupSession           *session;
-  GCancellable          *cancellable;
-  gchar                 *language;
-  GHashTable            *licences;   /* MODEL_CARD path -> licence */
-  VoiceInstallerChanged  changed;
-  gpointer               changed_data;
-
-  /* the voice being installed */
-  gboolean               busy;
-  gchar                 *key;
-  gchar                 *unpack;     /* the hidden directory it is made in */
-  gchar                 *onnx_url;   /* paths in the collection */
-  gchar                 *onnx_md5;
-  gchar                 *config_md5;
-  gchar                 *onnx_path;  /* the model being written */
-  GChecksum             *md5;        /* of the model so far */
-  GByteArray            *meta;       /* to append to the model */
-  GInputStream          *in;
-  GOutputStream         *out;
-  goffset                total;
-  goffset                done;
-} Installer;
-
-
-
-/* "ru_RU-dmitri-medium": letters, digits and "_" in three parts. Keys come
- * from the network and end up in file names and URLs. */
-gboolean
-voice_installer_valid_key (const gchar *key)
-{
-  return key != NULL
-         && strlen (key) < 100
-         && g_regex_match_simple ("^[a-zA-Z]{2,3}_[a-zA-Z]{2}-[a-zA-Z0-9_]+-(x_low|low|medium|high)$",
-                                  key, G_REGEX_DOLLAR_ENDONLY, 0);
-}
-
-
-
-gchar *
-voice_installer_user_dir (void)
-{
-  return g_build_filename (g_get_user_data_dir (), "sherpa-onnx", "tts", NULL);
-}
-
-
-
-static gchar *
-voice_dir_name (const gchar *key)
-{
-  return g_strconcat ("vits-piper-", key, NULL);
-}
-
-
-
-static VoiceState
-voice_state (const gchar *key)
-{
-  gchar     *name = voice_dir_name (key);
-  gchar     *user_dir = voice_installer_user_dir ();
-  gchar     *path = g_build_filename (user_dir, name, NULL);
-  VoiceState state = STATE_NONE;
-
-  if (g_file_test (path, G_FILE_TEST_IS_DIR))
-    state = STATE_USER;
-  else
+  for (i = 0; i < G_N_ELEMENTS (sources); i++)
     {
-      g_free (path);
-      path = g_build_filename (SYSTEM_DIR, name, NULL);
-      if (g_file_test (path, G_FILE_TEST_IS_DIR))
-        state = STATE_SYSTEM;
+      gsize len = strlen (sources[i]->module);
+
+      if (strncmp (module, sources[i]->module, len) == 0
+          && (module[len] == '\0' || module[len] == '-')
+          && g_file_test (sources[i]->module_path, G_FILE_TEST_EXISTS))
+        return sources[i];
     }
 
-  g_free (path);
-  g_free (user_dir);
-  g_free (name);
+  return NULL;
+}
 
-  return state;
+
+
+gboolean
+voice_installer_has_source (const gchar *module)
+{
+  return find_source (module) != NULL;
 }
 
 
@@ -209,9 +116,11 @@ state_text (VoiceState state)
 
 
 
+/* ------------------------------------------------------------- helpers */
+
 /* Removes @path and everything below it; links are removed, not followed */
-static gboolean
-remove_tree (const gchar *path)
+gboolean
+vi_remove_tree (const gchar *path)
 {
   GStatBuf st;
 
@@ -227,7 +136,7 @@ remove_tree (const gchar *path)
         {
           gchar *child = g_build_filename (path, name, NULL);
 
-          remove_tree (child);
+          vi_remove_tree (child);
           g_free (child);
         }
       if (dir != NULL)
@@ -241,7 +150,161 @@ remove_tree (const gchar *path)
 
 
 
-static Installer *
+/* "[LGPL v2.1](https://…)" -> "LGPL v2.1", at most 120 characters */
+static gchar *
+licence_clean (const gchar *line)
+{
+  GRegex *link = g_regex_new ("\\[([^]]*)\\]\\([^)]*\\)", 0, 0, NULL);
+  gchar  *text = g_regex_replace (link, line, -1, 0, "\\1", 0, NULL);
+
+  g_regex_unref (link);
+  if (text == NULL)
+    return NULL;
+
+  g_strstrip (g_strdelimit (text, "\t\r", ' '));
+  /* list marks and headings */
+  while (*text == '*' || *text == '-' || *text == '#')
+    {
+      memmove (text, text + 1, strlen (text));
+      g_strchug (text);
+    }
+  if (*text == '\0')
+    {
+      g_free (text);
+      return NULL;
+    }
+  if (g_utf8_strlen (text, -1) > 120)
+    {
+      gchar *cut = g_utf8_substring (text, 0, 120);
+
+      g_free (text);
+      text = cut;
+    }
+
+  return text;
+}
+
+
+
+/* The licence a model card or README states: "License: CC0", the line after
+ * a "License" heading, or "This voice is distributed under …" */
+gchar *
+vi_licence_line (const gchar *data,
+                 gsize        length)
+{
+  gchar   *text = g_strndup (data, length);
+  gchar  **lines;
+  gchar   *licence = NULL;
+  gboolean next = FALSE;
+  guint    i;
+
+  if (!g_utf8_validate (text, -1, NULL))
+    {
+      g_free (text);
+      return NULL;
+    }
+
+  lines = g_strsplit (text, "\n", -1);
+  for (i = 0; licence == NULL && lines[i] != NULL; i++)
+    {
+      gchar       *lower = g_utf8_strdown (lines[i], -1);
+      const gchar *at = strstr (lower, "license:");
+
+      if (at == NULL)
+        at = strstr (lower, "licence:");
+
+      if (next)
+        licence = licence_clean (lines[i]);
+      else if (at != NULL)
+        {
+          licence = licence_clean (lines[i] + (at - lower) + strlen ("license:"));
+          next = licence == NULL;
+        }
+      else if (g_str_has_prefix (g_strchug (lower), "#") && strstr (lower, "licen") != NULL)
+        next = TRUE;
+      else if (strstr (lower, "distributed under") != NULL
+               || strstr (lower, "distributed in the") != NULL)
+        licence = licence_clean (lines[i]);
+      g_free (lower);
+    }
+
+  g_strfreev (lines);
+  g_free (text);
+
+  return licence;
+}
+
+
+
+const gchar *
+vi_json_string (JsonObject  *object,
+                const gchar *member)
+{
+  JsonNode *node = object != NULL ? json_object_get_member (object, member) : NULL;
+
+  if (node == NULL || !JSON_NODE_HOLDS_VALUE (node)
+      || json_node_get_value_type (node) != G_TYPE_STRING)
+    return NULL;
+
+  return json_node_get_string (node);
+}
+
+
+
+JsonObject *
+vi_json_object (JsonObject  *object,
+                const gchar *member)
+{
+  JsonNode *node = object != NULL ? json_object_get_member (object, member) : NULL;
+
+  return node != NULL && JSON_NODE_HOLDS_OBJECT (node) ? json_node_get_object (node) : NULL;
+}
+
+
+
+JsonArray *
+vi_json_array (JsonObject  *object,
+               const gchar *member)
+{
+  JsonNode *node = object != NULL ? json_object_get_member (object, member) : NULL;
+
+  return node != NULL && JSON_NODE_HOLDS_ARRAY (node) ? json_node_get_array (node) : NULL;
+}
+
+
+
+gint64
+vi_json_int (JsonObject  *object,
+             const gchar *member,
+             gint64       fallback)
+{
+  JsonNode *node = object != NULL ? json_object_get_member (object, member) : NULL;
+
+  if (node == NULL || !JSON_NODE_HOLDS_VALUE (node)
+      || json_node_get_value_type (node) != G_TYPE_INT64)
+    return fallback;
+
+  return json_node_get_int (node);
+}
+
+
+
+gboolean
+installer_http_ok (SoupMessage *msg,
+                   GError     **error)
+{
+  if (soup_message_get_status (msg) == SOUP_STATUS_OK)
+    return TRUE;
+  g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "HTTP %u %s",
+               soup_message_get_status (msg), soup_message_get_reason_phrase (msg));
+  return FALSE;
+}
+
+
+
+/* ----------------------------------------------------------- the window */
+
+Installer *
 installer_ref (Installer *in)
 {
   in->refs++;
@@ -250,7 +313,7 @@ installer_ref (Installer *in)
 
 
 
-static void
+void
 installer_unref (Installer *in)
 {
   if (--in->refs > 0)
@@ -258,23 +321,83 @@ installer_unref (Installer *in)
 
   g_clear_object (&in->session);
   g_clear_object (&in->cancellable);
-  g_clear_object (&in->store);
   g_clear_object (&in->filter);
-  g_hash_table_unref (in->licences);
+  g_clear_object (&in->store);
+  g_ptr_array_unref (in->voices);
+  if (in->data != NULL)
+    in->source->free_data (in->data);
   g_free (in->language);
-  g_free (in->onnx_url);
-  g_free (in->config_md5);
   g_free (in);
 }
 
 
 
-static void
+void
 installer_set_status (Installer   *in,
                       const gchar *text)
 {
   if (!in->closed)
     gtk_label_set_text (GTK_LABEL (in->status_label), text != NULL ? text : "");
+}
+
+
+
+void
+installer_set_licence (Installer   *in,
+                       const gchar *licence)
+{
+  gchar *text;
+
+  if (in->closed)
+    return;
+
+  text = licence != NULL ? g_strdup_printf (_("Licence: %s"), licence) : g_strdup ("");
+  gtk_label_set_text (GTK_LABEL (in->licence_label), text);
+  g_free (text);
+}
+
+
+
+/* @fraction < 0: no idea how far */
+void
+installer_set_progress (Installer *in,
+                        gdouble    fraction)
+{
+  if (in->closed)
+    return;
+
+  if (fraction < 0.0)
+    gtk_progress_bar_pulse (GTK_PROGRESS_BAR (in->progress));
+  else
+    gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (in->progress), MIN (fraction, 1.0));
+}
+
+
+
+void
+installer_add_voice (Installer   *in,
+                     gpointer     voice,
+                     const gchar *family,
+                     const gchar *language,
+                     const gchar *name,
+                     const gchar *quality,
+                     gint64       bytes)
+{
+  VoiceState state = in->source->state (in, voice);
+  gchar     *size = bytes > 0 ? g_format_size (bytes) : g_strdup ("");
+
+  g_ptr_array_add (in->voices, voice);
+  gtk_list_store_insert_with_values (in->store, NULL, -1,
+                                     COL_VOICE, voice,
+                                     COL_FAMILY, family,
+                                     COL_LANGUAGE, language,
+                                     COL_NAME, name,
+                                     COL_QUALITY, quality,
+                                     COL_SIZE, size,
+                                     COL_STATE, state,
+                                     COL_STATE_TEXT, state_text (state),
+                                     -1);
+  g_free (size);
 }
 
 
@@ -301,47 +424,42 @@ installer_get_selected (Installer   *in,
 
 
 
-static gboolean
-installer_find_key (Installer   *in,
-                    const gchar *key,
-                    GtkTreeIter *iter)
-{
-  GtkTreeModel *model = GTK_TREE_MODEL (in->store);
-  gboolean      valid;
-
-  for (valid = gtk_tree_model_get_iter_first (model, iter); valid;
-       valid = gtk_tree_model_iter_next (model, iter))
-    {
-      gchar   *k;
-      gboolean found;
-
-      gtk_tree_model_get (model, iter, COL_KEY, &k, -1);
-      found = g_strcmp0 (k, key) == 0;
-      g_free (k);
-      if (found)
-        return TRUE;
-    }
-
-  return FALSE;
-}
-
-
-
-static void
-installer_update_row (Installer   *in,
-                      const gchar *key)
+gpointer
+installer_selected (Installer *in)
 {
   GtkTreeIter iter;
-  VoiceState  state = voice_state (key);
+  gpointer    voice = NULL;
 
-  if (installer_find_key (in, key, &iter))
-    gtk_list_store_set (in->store, &iter, COL_STATE, state,
-                        COL_STATE_TEXT, state_text (state), -1);
+  if (installer_get_selected (in, &iter))
+    gtk_tree_model_get (GTK_TREE_MODEL (in->store), &iter, COL_VOICE, &voice, -1);
+
+  return voice;
 }
 
 
 
-static void installer_show_licence (Installer *in);
+/* The state of every voice again: a package brings several */
+void
+installer_update_rows (Installer *in)
+{
+  GtkTreeModel *model = GTK_TREE_MODEL (in->store);
+  GtkTreeIter   iter;
+  gboolean      valid;
+
+  for (valid = gtk_tree_model_get_iter_first (model, &iter); valid;
+       valid = gtk_tree_model_iter_next (model, &iter))
+    {
+      gpointer   voice;
+      VoiceState state;
+
+      gtk_tree_model_get (model, &iter, COL_VOICE, &voice, -1);
+      state = in->source->state (in, voice);
+      gtk_list_store_set (in->store, &iter, COL_STATE, state,
+                          COL_STATE_TEXT, state_text (state), -1);
+    }
+}
+
+
 
 static void
 installer_update_buttons (Installer *in)
@@ -362,291 +480,16 @@ installer_update_buttons (Installer *in)
 
 
 
-/* ------------------------------------------------------------- licences */
-
-/* "* License: CC0" -> "CC0": the first "License:" line of a MODEL_CARD */
-static gchar *
-licence_from_card (const gchar *card,
-                   gsize        length)
-{
-  gchar  *text = g_strndup (card, length);
-  gchar **lines;
-  gchar  *licence = NULL;
-  guint   i;
-
-  if (!g_utf8_validate (text, -1, NULL))
-    {
-      g_free (text);
-      return NULL;
-    }
-
-  lines = g_strsplit (text, "\n", -1);
-  for (i = 0; licence == NULL && lines[i] != NULL; i++)
-    {
-      gchar *lower = g_utf8_strdown (lines[i], -1);
-      gchar *at = strstr (lower, "license:");
-
-      if (at != NULL)
-        {
-          licence = g_strstrip (g_strdup (lines[i] + (at - lower) + strlen ("license:")));
-          if (g_utf8_strlen (licence, -1) > 120)
-            {
-              gchar *cut = g_utf8_substring (licence, 0, 120);
-
-              g_free (licence);
-              licence = cut;
-            }
-        }
-      g_free (lower);
-    }
-
-  g_strfreev (lines);
-  g_free (text);
-
-  return licence;
-}
-
-
-
-typedef struct
-{
-  Installer *in;
-  gchar     *card;
-} CardRequest;
-
-static void
-installer_card_done (GObject      *source,
-                     GAsyncResult *result,
-                     gpointer      data)
-{
-  CardRequest *request = data;
-  Installer   *in = request->in;
-  gchar       *path = request->card;
-  GBytes      *bytes;
-  GError    *error = NULL;
-  gchar     *licence = NULL;
-
-  bytes = soup_session_send_and_read_finish (SOUP_SESSION (source), result, &error);
-  if (bytes != NULL && g_bytes_get_size (bytes) <= CARD_MAX_SIZE)
-    {
-      gsize         length;
-      const gchar  *card = g_bytes_get_data (bytes, &length);
-
-      licence = licence_from_card (card, length);
-    }
-  if (bytes != NULL)
-    g_bytes_unref (bytes);
-  g_clear_error (&error);
-
-  /* not found also counts: it is not asked for again */
-  g_hash_table_replace (in->licences, path,
-                        licence != NULL ? licence : g_strdup (_("not stated")));
-  installer_show_licence (in);
-  installer_unref (in);
-  g_free (request);
-}
-
-
-
-/* The licence of the selected voice, fetched once per voice */
 static void
 installer_show_licence (Installer *in)
 {
-  GtkTreeIter  iter;
-  gchar       *card = NULL;
-  const gchar *licence;
-
-  if (in->closed)
-    return;
-
-  if (!installer_get_selected (in, &iter))
-    {
-      gtk_label_set_text (GTK_LABEL (in->licence_label), "");
-      return;
-    }
-
-  gtk_tree_model_get (GTK_TREE_MODEL (in->store), &iter, COL_CARD, &card, -1);
-  if (card == NULL)
-    {
-      gtk_label_set_text (GTK_LABEL (in->licence_label), _("Licence: not stated"));
-      return;
-    }
-
-  licence = g_hash_table_lookup (in->licences, card);
-  if (licence != NULL)
-    {
-      gchar *text = g_strdup_printf (_("Licence: %s"), licence);
-
-      gtk_label_set_text (GTK_LABEL (in->licence_label), text);
-      g_free (text);
-      g_free (card);
-    }
-  else
-    {
-      gchar       *url = g_strconcat (COLLECTION_URL, card, NULL);
-      SoupMessage *msg = soup_message_new (SOUP_METHOD_GET, url);
-
-      gtk_label_set_text (GTK_LABEL (in->licence_label), _("Licence: …"));
-      /* an empty entry: asked for, the answer is on its way */
-      g_hash_table_replace (in->licences, g_strdup (card), g_strdup ("…"));
-      if (msg != NULL)
-        {
-          CardRequest *request = g_new (CardRequest, 1);
-
-          request->in = installer_ref (in);
-          request->card = card;
-          soup_session_send_and_read_async (in->session, msg, G_PRIORITY_DEFAULT,
-                                            in->cancellable, installer_card_done,
-                                            request);
-          g_object_unref (msg);
-        }
-      else
-        g_free (card);
-      g_free (url);
-    }
+  if (!in->closed)
+    in->source->licence (in, installer_selected (in));
 }
 
 
 
 /* ------------------------------------------------------------ catalogue */
-
-static const gchar *
-json_string (JsonObject  *object,
-             const gchar *member)
-{
-  JsonNode *node = object != NULL ? json_object_get_member (object, member) : NULL;
-
-  if (node == NULL || !JSON_NODE_HOLDS_VALUE (node)
-      || json_node_get_value_type (node) != G_TYPE_STRING)
-    return NULL;
-
-  return json_node_get_string (node);
-}
-
-
-
-static JsonObject *
-json_object (JsonObject  *object,
-             const gchar *member)
-{
-  JsonNode *node = object != NULL ? json_object_get_member (object, member) : NULL;
-
-  return node != NULL && JSON_NODE_HOLDS_OBJECT (node) ? json_node_get_object (node) : NULL;
-}
-
-
-
-/* "ru/ru_RU/dmitri/medium/MODEL_CARD": a relative path without ".." that
- * ends in @suffix */
-static gboolean
-valid_file_path (const gchar *path,
-                 const gchar *suffix)
-{
-  return g_regex_match_simple ("^[a-zA-Z0-9_]+(/[a-zA-Z0-9_][a-zA-Z0-9_.-]*)*$",
-                               path, G_REGEX_DOLLAR_ENDONLY, 0)
-         && strstr (path, "..") == NULL
-         && g_str_has_suffix (path, suffix);
-}
-
-
-
-/* the "md5_digest" of a file of voices.json if it looks like one */
-static const gchar *
-file_md5 (JsonObject *file)
-{
-  const gchar *md5 = json_string (file, "md5_digest");
-
-  return md5 != NULL && g_regex_match_simple ("^[0-9a-fA-F]{32}$", md5,
-                                              G_REGEX_DOLLAR_ENDONLY, 0) ? md5 : NULL;
-}
-
-
-
-/* One voice of voices.json into the store; FALSE if it is not usable */
-static gboolean
-installer_add_voice (Installer   *in,
-                     const gchar *key,
-                     JsonObject  *voice)
-{
-  JsonObject  *language = json_object (voice, "language");
-  JsonObject  *files = json_object (voice, "files");
-  const gchar *name = json_string (voice, "name");
-  const gchar *quality = json_string (voice, "quality");
-  const gchar *english = json_string (language, "name_english");
-  const gchar *country = json_string (language, "country_english");
-  const gchar *card = NULL, *onnx = NULL, *onnx_md5 = NULL;
-  const gchar *config = NULL, *config_md5 = NULL;
-  gchar       *family, *label, *size, *onnx_name, *config_name;
-  gint64       bytes = 0;
-  GList       *members, *l;
-  GtkTreeIter  iter;
-  VoiceState   state;
-
-  if (!voice_installer_valid_key (key) || name == NULL || quality == NULL
-      || english == NULL || files == NULL)
-    return FALSE;
-
-  onnx_name = g_strdup_printf ("/%s.onnx", key);
-  config_name = g_strdup_printf ("/%s.onnx.json", key);
-  members = json_object_get_members (files);
-  for (l = members; l != NULL; l = l->next)
-    {
-      const gchar *path = l->data;
-      JsonObject  *file = json_object (files, path);
-
-      if (valid_file_path (path, onnx_name) && file_md5 (file) != NULL)
-        {
-          onnx = path;
-          onnx_md5 = file_md5 (file);
-          if (json_object_has_member (file, "size_bytes"))
-            bytes = json_object_get_int_member (file, "size_bytes");
-        }
-      else if (valid_file_path (path, config_name) && file_md5 (file) != NULL)
-        {
-          config = path;
-          config_md5 = file_md5 (file);
-        }
-      else if (valid_file_path (path, "/MODEL_CARD"))
-        card = path;
-    }
-  g_free (onnx_name);
-  g_free (config_name);
-  if (onnx == NULL || config == NULL)
-    {
-      g_list_free (members);
-      return FALSE;
-    }
-
-  family = g_strndup (key, strcspn (key, "_"));
-  label = country != NULL ? g_strdup_printf ("%s (%s)", english, country)
-                          : g_strdup (english);
-  size = bytes > 0 ? g_format_size (bytes) : g_strdup ("");
-  state = voice_state (key);
-
-  gtk_list_store_insert_with_values (in->store, &iter, -1,
-                                     COL_KEY, key,
-                                     COL_FAMILY, family,
-                                     COL_LANGUAGE, label,
-                                     COL_NAME, name,
-                                     COL_QUALITY, quality,
-                                     COL_SIZE, size,
-                                     COL_STATE, state,
-                                     COL_STATE_TEXT, state_text (state),
-                                     COL_CARD, card,
-                                     COL_ONNX, onnx,
-                                     COL_ONNX_MD5, onnx_md5,
-                                     COL_CONFIG, config,
-                                     COL_CONFIG_MD5, config_md5,
-                                     -1);
-  g_list_free (members);
-  g_free (family);
-  g_free (label);
-  g_free (size);
-
-  return TRUE;
-}
-
-
 
 /* The languages of the store into the combo box: "All languages" first,
  * then by name; the one of the speech settings is chosen */
@@ -703,11 +546,16 @@ installer_load_catalogue (Installer   *in,
                           gsize        length,
                           GError     **error)
 {
-  JsonParser *parser = json_parser_new ();
+  JsonParser *parser;
   JsonNode   *root;
-  GList      *keys, *l;
-  guint       n = 0;
+  GError     *local = NULL;
+  gboolean    ok;
 
+  /* the rows point to the voices, one of them is being installed */
+  if (in->busy)
+    return TRUE;
+
+  parser = json_parser_new ();
   if (!json_parser_load_from_data (parser, data, length, error))
     {
       g_object_unref (parser);
@@ -715,7 +563,7 @@ installer_load_catalogue (Installer   *in,
     }
 
   root = json_parser_get_root (parser);
-  if (root == NULL || !JSON_NODE_HOLDS_OBJECT (root))
+  if (root == NULL)
     {
       g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
                            _("The list of voices is damaged"));
@@ -724,17 +572,17 @@ installer_load_catalogue (Installer   *in,
     }
 
   gtk_list_store_clear (in->store);
-  keys = json_object_get_members (json_node_get_object (root));
-  for (l = keys; l != NULL; l = l->next)
-    if (installer_add_voice (in, l->data, json_object (json_node_get_object (root), l->data)))
-      n++;
-  g_list_free (keys);
+  g_ptr_array_set_size (in->voices, 0);
+  ok = in->source->load (in, root, &local);
   g_object_unref (parser);
-
-  if (n == 0)
+  if (!ok || in->voices->len == 0)
     {
-      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-                           _("The list of voices is empty"));
+      gtk_list_store_clear (in->store);
+      g_ptr_array_set_size (in->voices, 0);
+      if (local == NULL)
+        local = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
+                                     _("The list of voices is empty"));
+      g_propagate_error (error, local);
       return FALSE;
     }
 
@@ -746,9 +594,9 @@ installer_load_catalogue (Installer   *in,
 
 
 static gchar *
-catalogue_cache_path (void)
+catalogue_cache_path (Installer *in)
 {
-  return g_build_filename (g_get_user_cache_dir (), PACKAGE, "piper-voices.json", NULL);
+  return g_build_filename (g_get_user_cache_dir (), PACKAGE, in->source->cache_name, NULL);
 }
 
 
@@ -758,13 +606,14 @@ static gboolean
 installer_load_cached (Installer *in,
                        gboolean   fresh)
 {
-  gchar    *path = catalogue_cache_path ();
+  gchar    *path = catalogue_cache_path (in);
   gchar    *data = NULL;
   gsize     length;
   GStatBuf  st;
   gboolean  loaded = FALSE;
 
   if (g_stat (path, &st) == 0
+      && st.st_size <= CATALOGUE_MAX_SIZE
       && (!fresh || g_get_real_time () - (gint64) st.st_mtime * G_USEC_PER_SEC < CATALOGUE_MAX_AGE)
       && g_file_get_contents (path, &data, &length, NULL))
     loaded = installer_load_catalogue (in, data, length, NULL);
@@ -782,15 +631,18 @@ installer_catalogue_done (GObject      *source,
                           GAsyncResult *result,
                           gpointer      data)
 {
-  Installer *in = data;
-  GBytes    *bytes;
-  GError    *error = NULL;
+  Installer   *in = data;
+  SoupMessage *msg = soup_session_get_async_result_message (SOUP_SESSION (source), result);
+  GBytes      *bytes;
+  GError      *error = NULL;
 
   bytes = soup_session_send_and_read_finish (SOUP_SESSION (source), result, &error);
   if (in->closed)
     goto out;
 
-  if (bytes != NULL && g_bytes_get_size (bytes) > CATALOGUE_MAX_SIZE)
+  if (bytes != NULL)
+    installer_http_ok (msg, &error);
+  if (error == NULL && g_bytes_get_size (bytes) > CATALOGUE_MAX_SIZE)
     g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
                          _("The list of voices is too big"));
 
@@ -798,7 +650,7 @@ installer_catalogue_done (GObject      *source,
       && installer_load_catalogue (in, g_bytes_get_data (bytes, NULL),
                                    g_bytes_get_size (bytes), &error))
     {
-      gchar *path = catalogue_cache_path ();
+      gchar *path = catalogue_cache_path (in);
       gchar *dir = g_path_get_dirname (path);
 
       g_mkdir_with_parents (dir, 0700);
@@ -819,6 +671,7 @@ installer_catalogue_done (GObject      *source,
       installer_set_status (in, text);
       g_free (text);
     }
+  installer_update_buttons (in);
 
 out:
   if (bytes != NULL)
@@ -838,7 +691,7 @@ installer_fetch_catalogue (Installer *in)
     return;
 
   installer_set_status (in, _("Loading the list of voices…"));
-  msg = soup_message_new (SOUP_METHOD_GET, CATALOGUE_URL);
+  msg = soup_message_new (SOUP_METHOD_GET, in->source->catalogue_url);
   soup_session_send_and_read_async (in->session, msg, G_PRIORITY_DEFAULT,
                                     in->cancellable, installer_catalogue_done,
                                     installer_ref (in));
@@ -847,85 +700,34 @@ installer_fetch_catalogue (Installer *in)
 
 
 
-/* --------------------------------------------------------------- install */
+/* ------------------------------------------------------------- download */
 
-/* Ends an installation; @error NULL: done */
 static void
-installer_finish (Installer *in,
-                  GError    *error)
+installer_download_end (Installer *in,
+                        GError    *error)
 {
-  g_clear_object (&in->in);
-  g_clear_object (&in->out);
-  if (in->unpack != NULL)
-    remove_tree (in->unpack);
-  g_clear_pointer (&in->unpack, g_free);
-  g_clear_pointer (&in->onnx_path, g_free);
-  g_clear_pointer (&in->onnx_md5, g_free);
-  g_clear_pointer (&in->md5, g_checksum_free);
-  g_clear_pointer (&in->meta, g_byte_array_unref);
-  in->busy = FALSE;
+  InstallerDownloadDone  done = in->download_done;
+  gpointer               data = in->download_data;
+  GError                *local = NULL;
+  gchar                 *md5 = NULL;
 
-  if (!in->closed)
+  if (error == NULL && in->out != NULL)
     {
-      gtk_widget_hide (in->progress);
-      if (error == NULL)
-        installer_set_status (in, NULL);
-      else if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-        {
-          gchar *text = g_strdup_printf (_("The voice could not be installed: %s"),
-                                         error->message);
-
-          installer_set_status (in, text);
-          g_free (text);
-        }
-      installer_update_row (in, in->key);
-      installer_update_buttons (in);
+      if (g_output_stream_close (in->out, in->cancellable, &local))
+        md5 = g_strdup (g_checksum_get_string (in->md5));
+      else
+        error = local;
     }
 
-  if (error == NULL && in->changed != NULL)
-    in->changed (in->changed_data);
+  g_clear_object (&in->in);
+  g_clear_object (&in->out);
+  g_clear_pointer (&in->md5, g_checksum_free);
+  in->download_done = NULL;
+  in->download_data = NULL;
 
-  g_clear_pointer (&in->key, g_free);
-  installer_unref (in);
-}
-
-
-
-/* The downloaded voice made whole and moved into place */
-static gboolean
-installer_put_in_place (Installer *in,
-                        GError   **error)
-{
-  gchar   *name = voice_dir_name (in->key);
-  gchar   *src = g_build_filename (in->unpack, name, NULL);
-  gchar   *user_dir = voice_installer_user_dir ();
-  gchar   *dest = g_build_filename (user_dir, name, NULL);
-  gchar   *espeak = g_build_filename (src, "espeak-ng-data", NULL);
-  gboolean ok = FALSE;
-
-  if (!g_file_test (SHARED_ESPEAK_DATA, G_FILE_TEST_IS_DIR))
-    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-                         _("the espeak-ng data of Piper is missing; install "
-                           "the package piper-espeak-ng-data"));
-  else if (symlink (SHARED_ESPEAK_DATA, espeak) != 0)
-    g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
-                 "%s: %s", espeak, g_strerror (errno));
-  else if (g_file_test (dest, G_FILE_TEST_EXISTS))
-    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_EXISTS,
-                         _("the voice is installed already"));
-  else if (g_rename (src, dest) != 0)
-    g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
-                 "%s: %s", dest, g_strerror (errno));
-  else
-    ok = TRUE;
-
-  g_free (espeak);
-  g_free (dest);
-  g_free (user_dir);
-  g_free (src);
-  g_free (name);
-
-  return ok;
+  done (in, md5, error, data);
+  g_free (md5);
+  g_clear_error (&local);
 }
 
 
@@ -943,29 +745,6 @@ installer_read_next (Installer *in)
 
 
 
-/* The whole model is there: checked, its metadata appended, put in place */
-static void
-installer_model_done (Installer *in)
-{
-  GError *error = NULL;
-
-  if (in->total > 0 && in->done != in->total)
-    g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_PARTIAL_INPUT,
-                         _("the download was cut short"));
-  else if (g_ascii_strcasecmp (g_checksum_get_string (in->md5), in->onnx_md5) != 0)
-    g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-                         _("the download is damaged (wrong checksum)"));
-  else if (g_output_stream_write_all (in->out, in->meta->data, in->meta->len,
-                                      NULL, in->cancellable, &error)
-           && g_output_stream_close (in->out, in->cancellable, &error))
-    installer_put_in_place (in, &error);
-
-  installer_finish (in, error);
-  g_clear_error (&error);
-}
-
-
-
 static void
 installer_read_done (GObject      *source,
                      GAsyncResult *result,
@@ -978,22 +757,24 @@ installer_read_done (GObject      *source,
   gsize      size;
 
   if (bytes == NULL)
-    {
-      installer_finish (in, error);
-      g_error_free (error);
-      return;
-    }
+    goto failed;
 
   size = g_bytes_get_size (bytes);
   if (size == 0)
     {
       g_bytes_unref (bytes);
-      installer_model_done (in);
+      if (in->total > 0 && in->done != in->total)
+        {
+          g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_PARTIAL_INPUT,
+                               _("the download was cut short"));
+          goto failed;
+        }
+      installer_download_end (in, NULL);
       return;
     }
 
   in->done += size;
-  if (in->done > VOICE_MAX_SIZE)
+  if (in->done > in->max)
     g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_FAILED,
                          _("the download is too big"));
   else
@@ -1004,63 +785,46 @@ installer_read_done (GObject      *source,
     }
   g_bytes_unref (bytes);
   if (error != NULL)
-    {
-      installer_finish (in, error);
-      g_error_free (error);
-      return;
-    }
+    goto failed;
 
-  if (!in->closed)
-    {
-      if (in->total > 0)
-        gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (in->progress),
-                                       (gdouble) in->done / in->total);
-      else
-        gtk_progress_bar_pulse (GTK_PROGRESS_BAR (in->progress));
-    }
+  installer_set_progress (in, in->total > 0
+                              ? in->base + in->span * in->done / in->total : -1.0);
   installer_read_next (in);
-}
+  return;
 
-
-
-static gboolean
-installer_http_ok (SoupMessage *msg,
-                   GError     **error)
-{
-  if (soup_message_get_status (msg) == SOUP_STATUS_OK)
-    return TRUE;
-  g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "HTTP %u %s",
-               soup_message_get_status (msg), soup_message_get_reason_phrase (msg));
-  return FALSE;
+failed:
+  installer_download_end (in, error);
+  g_error_free (error);
 }
 
 
 
 static void
-installer_model_sent (GObject      *source,
-                      GAsyncResult *result,
-                      gpointer      data)
+installer_download_sent (GObject      *source,
+                         GAsyncResult *result,
+                         gpointer      data)
 {
   Installer   *in = data;
   SoupMessage *msg = soup_session_get_async_result_message (SOUP_SESSION (source), result);
   GError      *error = NULL;
   GFile       *file;
+  const gchar *path = g_object_get_data (G_OBJECT (msg), "path");
 
   in->in = soup_session_send_finish (SOUP_SESSION (source), result, &error);
   if (in->in == NULL || !installer_http_ok (msg, &error))
     goto failed;
 
   in->total = soup_message_headers_get_content_length (soup_message_get_response_headers (msg));
-  if (in->total > VOICE_MAX_SIZE)
+  if (in->total > in->max)
     {
       g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_FAILED,
                            _("the download is too big"));
       goto failed;
     }
 
-  file = g_file_new_for_path (in->onnx_path);
+  file = g_file_new_for_path (path);
   in->out = G_OUTPUT_STREAM (g_file_replace (file, NULL, FALSE, G_FILE_CREATE_NONE,
-                                             NULL, &error));
+                                             in->cancellable, &error));
   g_object_unref (file);
   if (in->out == NULL)
     goto failed;
@@ -1070,242 +834,87 @@ installer_model_sent (GObject      *source,
   return;
 
 failed:
-  installer_finish (in, error);
+  installer_download_end (in, error);
   g_error_free (error);
 }
 
 
 
-/* protobuf, as far as ONNX metadata needs it: a length-delimited field */
-static void
-pb_varint (GByteArray *b,
-           guint64     n)
+/* @url into the file @path, at most @max bytes, the bar going from @base to
+ * @base + @span; @done gets the MD5 sum of what came */
+void
+installer_download (Installer             *in,
+                    const gchar           *url,
+                    const gchar           *path,
+                    goffset                max,
+                    gdouble                base,
+                    gdouble                span,
+                    InstallerDownloadDone  done,
+                    gpointer               data)
 {
-  do
-    {
-      guint8 c = n & 0x7f;
+  SoupMessage *msg = soup_message_new (SOUP_METHOD_GET, url);
 
-      n >>= 7;
-      if (n != 0)
-        c |= 0x80;
-      g_byte_array_append (b, &c, 1);
-    }
-  while (n != 0);
-}
-
-static void
-pb_bytes (GByteArray   *b,
-          guint         field,
-          const guint8 *data,
-          gsize         len)
-{
-  pb_varint (b, field << 3 | 2);
-  pb_varint (b, len);
-  g_byte_array_append (b, data, len);
-}
-
-/* ModelProto.metadata_props (14) = StringStringEntryProto {key = 1, value = 2}.
- * Repeated fields may come in any order, so appended to the end of the model
- * file they add to what is there. */
-static void
-onnx_add_meta (GByteArray  *b,
-               const gchar *key,
-               const gchar *value)
-{
-  GByteArray *entry = g_byte_array_new ();
-
-  pb_bytes (entry, 1, (const guint8 *) key, strlen (key));
-  pb_bytes (entry, 2, (const guint8 *) value, strlen (value));
-  pb_bytes (b, 14, entry->data, entry->len);
-  g_byte_array_unref (entry);
-}
-
-
-
-static gint64
-json_int (JsonObject  *object,
-          const gchar *member,
-          gint64       fallback)
-{
-  JsonNode *node = object != NULL ? json_object_get_member (object, member) : NULL;
-
-  if (node == NULL || !JSON_NODE_HOLDS_VALUE (node)
-      || json_node_get_value_type (node) != G_TYPE_INT64)
-    return fallback;
-
-  return json_node_get_int (node);
-}
-
-
-
-/* From the voice's .onnx.json, what sherpa-onnx needs besides the model, as
- * sherpa-onnx's scripts/piper/add_meta_data.py makes it: tokens.txt from the
- * phoneme_id_map and the metadata to append to the model (in->meta) */
-static gboolean
-installer_convert_config (Installer   *in,
-                          GBytes      *config,
-                          const gchar *dir,
-                          GError     **error)
-{
-  JsonParser  *parser = json_parser_new ();
-  JsonObject  *root, *ids;
-  const gchar *type, *espeak, *language;
-  gint64       rate, speakers;
-  GString     *tokens = NULL;
-  GList       *members = NULL;
-  gchar       *path, *value;
-  gboolean     ok = FALSE;
-
-  if (!json_parser_load_from_data (parser, g_bytes_get_data (config, NULL),
-                                   g_bytes_get_size (config), NULL)
-      || !JSON_NODE_HOLDS_OBJECT (json_parser_get_root (parser)))
-    goto bad;
-  root = json_node_get_object (json_parser_get_root (parser));
-  ids = json_object (root, "phoneme_id_map");
-  type = json_string (root, "phoneme_type");
-  espeak = json_string (json_object (root, "espeak"), "voice");
-  language = json_string (json_object (root, "language"), "name_english");
-  rate = json_int (json_object (root, "audio"), "sample_rate", 0);
-  speakers = json_int (root, "num_speakers", 1);
-
-  /* "text": letters, read by sd_sherpa as they are; "pinyin" etc.: not yet */
-  if (type != NULL && strcmp (type, "espeak") != 0 && strcmp (type, "text") != 0)
-    {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
-                   _("this voice uses \"%s\" phonemes, which are not supported yet"),
-                   type);
-      goto out;
-    }
-  if (ids == NULL || espeak == NULL || rate <= 0 || speakers <= 0)
-    goto bad;
-  if (rate == 22500)  /* a few voices say so, add_meta_data.py corrects it */
-    rate = 22050;
-
-  tokens = g_string_new (NULL);
-  members = json_object_get_members (ids);
-  for (GList *l = members; l != NULL; l = l->next)
-    {
-      const gchar *symbol = l->data;
-      JsonNode    *node = json_object_get_member (ids, symbol);
-      gint64       id = -1;
-
-      if (strcmp (symbol, "\n") == 0)
-        continue;
-      if (JSON_NODE_HOLDS_ARRAY (node) && json_array_get_length (json_node_get_array (node)) > 0)
-        node = json_array_get_element (json_node_get_array (node), 0);
-      if (JSON_NODE_HOLDS_VALUE (node) && json_node_get_value_type (node) == G_TYPE_INT64)
-        id = json_node_get_int (node);
-      if (id < 0 || strchr (symbol, '\n') != NULL || g_utf8_strlen (symbol, -1) != 1)
-        goto bad;
-      g_string_append_printf (tokens, "%s %" G_GINT64_FORMAT "\n", symbol, id);
-    }
-  if (tokens->len == 0)
-    goto bad;
-
-  path = g_build_filename (dir, "tokens.txt", NULL);
-  ok = g_file_set_contents (path, tokens->str, tokens->len, error);
-  g_free (path);
-  if (!ok)
-    goto out;
-  value = g_strdup_printf ("%s.onnx.json", in->key);
-  path = g_build_filename (dir, value, NULL);
-  ok = g_file_set_contents (path, g_bytes_get_data (config, NULL),
-                            g_bytes_get_size (config), error);
-  g_free (path);
-  g_free (value);
-  if (!ok)
-    goto out;
-
-  in->meta = g_byte_array_new ();
-  onnx_add_meta (in->meta, "model_type", "vits");
-  onnx_add_meta (in->meta, "comment", "piper");
-  onnx_add_meta (in->meta, "language", language != NULL ? language : "");
-  onnx_add_meta (in->meta, "voice", espeak);
-  onnx_add_meta (in->meta, "version", "1");
-  onnx_add_meta (in->meta, "has_espeak", "1");
-  value = g_strdup_printf ("%" G_GINT64_FORMAT, speakers);
-  onnx_add_meta (in->meta, "n_speakers", value);
-  g_free (value);
-  value = g_strdup_printf ("%" G_GINT64_FORMAT, rate);
-  onnx_add_meta (in->meta, "sample_rate", value);
-  g_free (value);
-  goto out;
-
-bad:
-  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-                       _("the settings of the voice cannot be read"));
-  ok = FALSE;
-out:
-  if (tokens != NULL)
-    g_string_free (tokens, TRUE);
-  g_list_free (members);
-  g_object_unref (parser);
-  return ok;
-}
-
-
-
-/* The .onnx.json is here: converted, then the model downloaded */
-static void
-installer_config_done (GObject      *source,
-                       GAsyncResult *result,
-                       gpointer      data)
-{
-  Installer   *in = data;
-  SoupMessage *msg = soup_session_get_async_result_message (SOUP_SESSION (source), result);
-  GError      *error = NULL;
-  GBytes      *bytes = soup_session_send_and_read_finish (SOUP_SESSION (source), result, &error);
-  gchar       *dir = NULL, *md5 = NULL, *url, *name;
-
-  if (bytes == NULL || !installer_http_ok (msg, &error))
-    goto failed;
-  if (g_bytes_get_size (bytes) > CONFIG_MAX_SIZE)
-    {
-      g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                           _("the download is too big"));
-      goto failed;
-    }
-  md5 = g_compute_checksum_for_bytes (G_CHECKSUM_MD5, bytes);
-  if (g_ascii_strcasecmp (md5, in->config_md5) != 0)
-    {
-      g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-                           _("the download is damaged (wrong checksum)"));
-      goto failed;
-    }
-
-  name = voice_dir_name (in->key);
-  dir = g_build_filename (in->unpack, name, NULL);
-  g_free (name);
-  if (!installer_convert_config (in, bytes, dir, &error))
-    goto failed;
-
-  name = g_strdup_printf ("%s.onnx", in->key);
-  in->onnx_path = g_build_filename (dir, name, NULL);
-  g_free (name);
+  in->download_done = done;
+  in->download_data = data;
+  in->total = in->done = 0;
+  in->max = max;
+  in->base = base;
+  in->span = span;
   in->md5 = g_checksum_new (G_CHECKSUM_MD5);
-  url = g_strconcat (COLLECTION_URL, in->onnx_url, NULL);
-  msg = soup_message_new (SOUP_METHOD_GET, url);
-  g_free (url);
+
   if (msg == NULL)
     {
-      g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA, in->onnx_url);
-      goto failed;
-    }
-  soup_session_send_async (in->session, msg, G_PRIORITY_DEFAULT, in->cancellable,
-                           installer_model_sent, in);
-  g_object_unref (msg);
-  g_free (dir);
-  g_free (md5);
-  g_bytes_unref (bytes);
-  return;
+      GError *error = g_error_new (G_IO_ERROR, G_IO_ERROR_INVALID_DATA, "%s", url);
 
-failed:
-  installer_finish (in, error);
-  g_error_free (error);
-  g_free (dir);
-  g_free (md5);
-  if (bytes != NULL)
-    g_bytes_unref (bytes);
+      installer_download_end (in, error);
+      g_error_free (error);
+      return;
+    }
+
+  installer_set_progress (in, base);
+  installer_set_status (in, _("Connecting…"));
+  g_object_set_data_full (G_OBJECT (msg), "path", g_strdup (path), g_free);
+  soup_session_send_async (in->session, msg, G_PRIORITY_DEFAULT, in->cancellable,
+                           installer_download_sent, in);
+  g_object_unref (msg);
+}
+
+
+
+/* --------------------------------------------------------------- install */
+
+/* Ends an installation; @error NULL: done */
+void
+installer_finish (Installer *in,
+                  GError    *error)
+{
+  if (in->unpack != NULL)
+    vi_remove_tree (in->unpack);
+  g_clear_pointer (&in->unpack, g_free);
+  in->busy = FALSE;
+  in->voice = NULL;
+
+  if (!in->closed)
+    {
+      gtk_widget_hide (in->progress);
+      if (error == NULL)
+        installer_set_status (in, NULL);
+      else if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+        {
+          gchar *text = g_strdup_printf (_("The voice could not be installed: %s"),
+                                         error->message);
+
+          installer_set_status (in, text);
+          g_free (text);
+        }
+      installer_update_rows (in);
+      installer_update_buttons (in);
+    }
+
+  if (error == NULL && in->changed != NULL)
+    in->changed (in->changed_data);
+
+  installer_unref (in);
 }
 
 
@@ -1313,72 +922,28 @@ failed:
 static void
 installer_install (Installer *in)
 {
-  GtkTreeIter  iter;
-  gchar       *user_dir, *name, *dir, *url, *config = NULL;
-  SoupMessage *msg = NULL;
-  GError      *error = NULL;
+  GtkTreeIter iter;
+  gpointer    voice = NULL;
+  gint        state = -1;
 
   if (in->busy || !installer_get_selected (in, &iter))
     return;
 
-  g_clear_pointer (&in->onnx_url, g_free);
-  g_clear_pointer (&in->config_md5, g_free);
-  gtk_tree_model_get (GTK_TREE_MODEL (in->store), &iter, COL_KEY, &in->key,
-                      COL_ONNX, &in->onnx_url, COL_ONNX_MD5, &in->onnx_md5,
-                      COL_CONFIG, &config, COL_CONFIG_MD5, &in->config_md5, -1);
-  if (!voice_installer_valid_key (in->key) || in->onnx_url == NULL || config == NULL
-      || in->onnx_md5 == NULL || in->config_md5 == NULL)
-    {
-      g_clear_pointer (&in->key, g_free);
-      g_clear_pointer (&in->onnx_md5, g_free);
-      g_free (config);
-      return;
-    }
+  gtk_tree_model_get (GTK_TREE_MODEL (in->store), &iter, COL_VOICE, &voice,
+                      COL_STATE, &state, -1);
+  if (voice == NULL || state != STATE_NONE)
+    return;
 
   in->busy = TRUE;
-  in->total = in->done = 0;
+  in->voice = voice;
   installer_ref (in);
 
-  /* everything goes to a hidden directory first, renamed into place when whole */
-  user_dir = voice_installer_user_dir ();
-  name = g_strdup_printf (".unpack-%s", in->key);
-  in->unpack = g_build_filename (user_dir, name, NULL);
-  g_free (name);
-  name = voice_dir_name (in->key);
-  dir = g_build_filename (in->unpack, name, NULL);
-  g_free (name);
-  remove_tree (in->unpack);
-  if (g_mkdir_with_parents (dir, 0755) != 0)
-    g_set_error (&error, G_IO_ERROR, g_io_error_from_errno (errno),
-                 "%s: %s", dir, g_strerror (errno));
-  else
-    {
-      url = g_strconcat (COLLECTION_URL, config, NULL);
-      msg = soup_message_new (SOUP_METHOD_GET, url);
-      g_free (url);
-      if (msg == NULL)
-        g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA, config);
-    }
+  gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (in->progress), 0.0);
+  gtk_widget_show (in->progress);
+  installer_set_status (in, _("Connecting…"));
+  installer_update_buttons (in);
 
-  if (error != NULL)
-    {
-      installer_finish (in, error);
-      g_error_free (error);
-    }
-  else
-    {
-      gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (in->progress), 0.0);
-      gtk_widget_show (in->progress);
-      installer_set_status (in, _("Connecting…"));
-      installer_update_buttons (in);
-      soup_session_send_and_read_async (in->session, msg, G_PRIORITY_DEFAULT,
-                                        in->cancellable, installer_config_done, in);
-      g_object_unref (msg);
-    }
-
-  g_free (dir);
-  g_free (config);
-  g_free (user_dir);
+  in->source->install (in, voice);
 }
 
 
@@ -1387,22 +952,19 @@ static void
 installer_remove (Installer *in)
 {
   GtkTreeIter iter;
-  gchar      *key = NULL, *user_dir, *name, *path;
+  gpointer    voice = NULL;
+  gint        state = -1;
+  GError     *error = NULL;
 
   if (in->busy || !installer_get_selected (in, &iter))
     return;
 
-  gtk_tree_model_get (GTK_TREE_MODEL (in->store), &iter, COL_KEY, &key, -1);
-  if (!voice_installer_valid_key (key))
-    {
-      g_free (key);
-      return;
-    }
+  gtk_tree_model_get (GTK_TREE_MODEL (in->store), &iter, COL_VOICE, &voice,
+                      COL_STATE, &state, -1);
+  if (voice == NULL || state != STATE_USER)
+    return;
 
-  user_dir = voice_installer_user_dir ();
-  name = voice_dir_name (key);
-  path = g_build_filename (user_dir, name, NULL);
-  if (remove_tree (path))
+  if (in->source->remove (in, voice, &error))
     {
       installer_set_status (in, NULL);
       if (in->changed != NULL)
@@ -1411,18 +973,14 @@ installer_remove (Installer *in)
   else
     {
       gchar *text = g_strdup_printf (_("The voice could not be removed: %s"),
-                                     g_strerror (errno));
+                                     error->message);
 
       installer_set_status (in, text);
       g_free (text);
+      g_error_free (error);
     }
-  installer_update_row (in, key);
+  installer_update_rows (in);
   installer_update_buttons (in);
-
-  g_free (path);
-  g_free (name);
-  g_free (user_dir);
-  g_free (key);
 }
 
 
@@ -1451,6 +1009,31 @@ installer_visible (GtkTreeModel *model,
   g_free (family);
 
   return visible;
+}
+
+
+
+/* by language, then by name */
+static gint
+installer_compare (GtkTreeModel *model,
+                   GtkTreeIter  *a,
+                   GtkTreeIter  *b,
+                   gpointer      data)
+{
+  gchar *la, *lb, *na, *nb;
+  gint   result;
+
+  gtk_tree_model_get (model, a, COL_LANGUAGE, &la, COL_NAME, &na, -1);
+  gtk_tree_model_get (model, b, COL_LANGUAGE, &lb, COL_NAME, &nb, -1);
+  result = g_utf8_collate (la != NULL ? la : "", lb != NULL ? lb : "");
+  if (result == 0)
+    result = g_utf8_collate (na != NULL ? na : "", nb != NULL ? nb : "");
+  g_free (la);
+  g_free (lb);
+  g_free (na);
+  g_free (nb);
+
+  return result;
 }
 
 
@@ -1566,24 +1149,32 @@ installer_add_column (GtkTreeView *view,
 
 void
 voice_installer_show (GtkWindow             *parent,
+                      const gchar           *module,
                       const gchar           *language,
                       VoiceInstallerChanged  changed,
                       gpointer               data)
 {
-  Installer *in = g_new0 (Installer, 1);
-  GtkWidget *content, *box, *label, *scrolled;
-  GtkTreeSortable *sortable;
+  const VoiceSource *source = find_source (module);
+  Installer         *in;
+  GtkWidget         *content, *box, *label, *scrolled;
+  GtkTreeSortable   *sortable;
 
+  if (source == NULL)
+    return;
+
+  in = g_new0 (Installer, 1);
   in->refs = 1;
+  in->source = source;
+  in->data = source->new_data != NULL ? source->new_data () : NULL;
+  in->voices = g_ptr_array_new_with_free_func (source->free_voice);
   in->language = g_strdup (language);
   in->changed = changed;
   in->changed_data = data;
-  in->licences = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
   in->cancellable = g_cancellable_new ();
   in->session = soup_session_new_with_options ("user-agent", PACKAGE "/" PACKAGE_VERSION,
                                                "timeout", 60, NULL);
 
-  in->dialog = gtk_dialog_new_with_buttons (_("Piper Voices"), parent,
+  in->dialog = gtk_dialog_new_with_buttons (_(source->title), parent,
                                             GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
                                             _("_Remove"), RESPONSE_REMOVE,
                                             _("_Install"), RESPONSE_INSTALL,
@@ -1593,9 +1184,7 @@ voice_installer_show (GtkWindow             *parent,
                                                            RESPONSE_INSTALL);
   in->remove_button = gtk_dialog_get_widget_for_response (GTK_DIALOG (in->dialog),
                                                           RESPONSE_REMOVE);
-  gtk_widget_set_tooltip_text (in->install_button,
-                               _("Download the voice from the Piper voice "
-                                 "collection and install it for you"));
+  gtk_widget_set_tooltip_text (in->install_button, _(source->install_tooltip));
   gtk_window_set_default_size (GTK_WINDOW (in->dialog), 640, 480);
 
   content = gtk_dialog_get_content_area (GTK_DIALOG (in->dialog));
@@ -1610,20 +1199,24 @@ voice_installer_show (GtkWindow             *parent,
   gtk_box_pack_start (GTK_BOX (box), in->language_combo, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (content), box, FALSE, FALSE, 0);
 
-  in->store = gtk_list_store_new (N_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
-                                  G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_INT,
+  in->store = gtk_list_store_new (N_COLS, G_TYPE_POINTER, G_TYPE_STRING, G_TYPE_STRING,
                                   G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
-                                  G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+                                  G_TYPE_INT, G_TYPE_STRING);
   sortable = GTK_TREE_SORTABLE (in->store);
-  gtk_tree_sortable_set_sort_column_id (sortable, COL_KEY, GTK_SORT_ASCENDING);
+  gtk_tree_sortable_set_default_sort_func (sortable, installer_compare, NULL, NULL);
+  gtk_tree_sortable_set_sort_column_id (sortable, GTK_TREE_SORTABLE_DEFAULT_SORT_COLUMN_ID,
+                                        GTK_SORT_ASCENDING);
   in->filter = gtk_tree_model_filter_new (GTK_TREE_MODEL (in->store), NULL);
   gtk_tree_model_filter_set_visible_func (GTK_TREE_MODEL_FILTER (in->filter),
                                           installer_visible, in, NULL);
   in->view = gtk_tree_view_new_with_model (in->filter);
   installer_add_column (GTK_TREE_VIEW (in->view), _("Language"), COL_LANGUAGE, TRUE);
   installer_add_column (GTK_TREE_VIEW (in->view), _("Voice"), COL_NAME, TRUE);
-  installer_add_column (GTK_TREE_VIEW (in->view), _("Quality"), COL_QUALITY, FALSE);
-  installer_add_column (GTK_TREE_VIEW (in->view), _("Size"), COL_SIZE, FALSE);
+  if (source->quality_title != NULL)
+    installer_add_column (GTK_TREE_VIEW (in->view), _(source->quality_title),
+                          COL_QUALITY, FALSE);
+  if (!source->no_size)
+    installer_add_column (GTK_TREE_VIEW (in->view), _("Size"), COL_SIZE, FALSE);
   installer_add_column (GTK_TREE_VIEW (in->view), _("State"), COL_STATE_TEXT, FALSE);
   scrolled = gtk_scrolled_window_new (NULL, NULL);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled),

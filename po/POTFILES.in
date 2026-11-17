@@ -3,3 +3,7 @@ data/xfce4-speech-settings.desktop.in
 src/main.c
 src/speech-page.c
 src/voice-installer.c
+src/voice-source-piper.c
+src/voice-source-rhvoice.c
+src/voice-packagekit.c
+src/voice-unzip.c

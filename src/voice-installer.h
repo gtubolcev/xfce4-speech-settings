@@ -28,7 +28,9 @@ typedef void (*VoiceInstallerChanged) (gpointer data);
 gboolean  voice_installer_valid_key (const gchar *key);
 gchar    *voice_installer_user_dir  (void);
 
+gboolean  voice_installer_has_source (const gchar           *module);
 void      voice_installer_show      (GtkWindow             *parent,
+                                     const gchar           *module,
                                      const gchar           *language,
                                      VoiceInstallerChanged  changed,
                                      gpointer               data);
