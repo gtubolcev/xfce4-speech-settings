@@ -62,6 +62,14 @@ no new engines beyond those listed here.
      - the picker on the main block;
      - errors in the console;
      - a screenshot.
+   - What the user sees (user, 2026-11-17): besides saving the HTML and scripts, take a
+     full-page screenshot and OCR it (tesseract rus+eng; Firefox's own screenshot of the
+     whole page). The OCR text is the reference of what is on screen: compare it with what
+     was read (fuzzy match per block) to find visible main text that was skipped and read
+     text that isn't visible (hidden menus, off-screen or aria-hidden parts, cookie
+     banners). Also the order: reading should follow the visual order of the blocks.
+     Screenshots only after the cookie banner is handled (Consent-O-Matic in the test
+     profile), else the banner covers the page.
    - Manual pass over the results table:
      - right text or not (menus, ads, comments read?);
      - highlight follows the reading;
