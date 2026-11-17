@@ -665,3 +665,11 @@ Three goals, in this order:
   Readability is fine to start with, but many sites have no reader view, and on some it
   picks menus or side content as the main text: a manual choice of the region (pick a
   block, read from here, selection) must always be there.
+- **"Report a broken page"** (user, 2026-11-17, later; like Consent-O-Matic's "tell the
+  authors about a page that doesn't work"): a button in the popup and the panel. It shows
+  the user what goes out before sending: the URL, the extension version, which reading
+  mode was used, the detected languages per block and the start of each unit read (to see
+  what Readability took or skipped), an optional comment. No page text beyond that and no
+  cookies without the user's consent. Simplest channel without a server: open a prefilled
+  GitHub issue in the speechd-reader repo (URL length limits: long reports as a file to
+  attach). The reports feed the site fixes and the acceptance tests (item 6).
