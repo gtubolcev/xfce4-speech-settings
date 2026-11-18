@@ -55,6 +55,38 @@ static GOptionEntry entries[] =
 
 
 
+#ifdef HAVE_GTK_X11
+/* seconds the settings manager has to embed the plug */
+#define PLUG_EMBED_TIMEOUT 30
+
+static gboolean plug_was_embedded = FALSE;
+
+static void
+plug_embedded_changed (GtkPlug    *plug,
+                       GParamSpec *pspec,
+                       gpointer    data)
+{
+  if (gtk_plug_get_embedded (plug))
+    plug_was_embedded = TRUE;
+  else if (plug_was_embedded)
+    gtk_main_quit ();
+}
+
+static gboolean
+plug_embed_timeout (gpointer data)
+{
+  if (!plug_was_embedded && !gtk_plug_get_embedded (GTK_PLUG (data)))
+    {
+      g_printerr ("xfce4-speech-settings: the settings manager did not take "
+                  "the dialog; exiting\n");
+      gtk_main_quit ();
+    }
+  return G_SOURCE_REMOVE;
+}
+#endif
+
+
+
 static void
 dialog_response (GtkDialog *dialog,
                  gint       response,
@@ -126,7 +158,15 @@ main (gint    argc,
       GtkWidget *plug;
 
       plug = gtk_plug_new (opt_socket_id);
+      /* the plug is destroyed on delete-event, the page must outlive it
+       * for the last save */
+      g_object_ref (page);
       g_signal_connect (plug, "delete-event", G_CALLBACK (gtk_main_quit), NULL);
+      /* a plug the settings manager dropped or never took gets no
+       * delete-event and would stay as an invisible process */
+      g_signal_connect (plug, "notify::embedded", G_CALLBACK (plug_embedded_changed), NULL);
+      g_signal_connect (plug, "destroy", G_CALLBACK (gtk_main_quit), NULL);
+      g_timeout_add_seconds (PLUG_EMBED_TIMEOUT, plug_embed_timeout, plug);
       gtk_container_add (GTK_CONTAINER (plug), page);
       gtk_widget_show_all (plug);
 
@@ -138,6 +178,7 @@ main (gint    argc,
       gtk_main ();
 
       speech_page_flush (page);
+      g_object_unref (page);
       return EXIT_SUCCESS;
     }
 #endif
