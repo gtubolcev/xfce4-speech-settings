@@ -2494,6 +2494,14 @@ speech_page_new (void)
       return box;
     }
 
+  /* full copies of our modules' files, made by older versions, become the
+   * options that differ from the system files; the modules reread them */
+  if (speechd_modules_migrate ())
+    {
+      page->reload_pending = TRUE;
+      speech_page_queue_save (page);
+    }
+
   /* AddModule lines hide every module that is not listed */
   page->modules_bar = gtk_info_bar_new_with_buttons (
     _("_Use All"), GTK_RESPONSE_ACCEPT, NULL);

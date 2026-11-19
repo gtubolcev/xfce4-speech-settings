@@ -62,6 +62,7 @@ gboolean       speechd_config_save       (SpeechdConfig *config,
                                           GError       **error);
 
 gboolean       speechd_server_reload     (GError       **error);
+gboolean       speechd_modules_migrate   (void);
 
 /* How a module's configuration chooses the voice of a language */
 typedef enum
