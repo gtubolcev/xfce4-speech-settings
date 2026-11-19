@@ -21,9 +21,9 @@ Rules-Requires-Root: no
 Package: xfce4-speech-settings
 Architecture: any
 Depends: speech-dispatcher, ${misc:Depends}, ${shlibs:Depends}
-Breaks: speech-dispatcher-sherpa-onnx (<< 0.1.0+git20261120), speech-dispatcher-sherpa (<< 0.1.0+git20261120),
-        speech-dispatcher-vosk (<< 0.1.0+git20261120), speech-dispatcher-kokoro (<< 0.1.0+git20261120),
-        speech-dispatcher-silero (<< 0.1.0+git20261120), speech-dispatcher-teratts (<< 0.1.0+git20261120)
+Breaks: speech-dispatcher-sherpa-onnx (<< 0.1.0+git20261119233412), speech-dispatcher-sherpa (<< 0.1.0+git20261119233412),
+        speech-dispatcher-vosk (<< 0.1.0+git20261119233412), speech-dispatcher-kokoro (<< 0.1.0+git20261119233412),
+        speech-dispatcher-silero (<< 0.1.0+git20261119233412), speech-dispatcher-teratts (<< 0.1.0+git20261119233412)
 Description: speech settings dialog for Xfce
  Chooses the language, the synthesizer and the voice of speech-dispatcher, the
  text-to-speech service of the desktop, and sets the rate, pitch, volume,
