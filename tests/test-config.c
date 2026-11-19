@@ -269,17 +269,17 @@ test_module_option (void)
 
   conf_dir = g_build_filename (dir, "speech-dispatcher", "modules", NULL);
   g_assert_cmpint (g_mkdir_with_parents (conf_dir, 0700), ==, 0);
-  path = g_build_filename (conf_dir, "kokoro.conf", NULL);
+  path = g_build_filename (conf_dir, "foo.conf", NULL);
   g_assert_true (g_file_set_contents (path, start, -1, NULL));
 
-  g_assert_true (speechd_module_has_option ("kokoro", "KokoroPreload"));
-  g_assert_false (speechd_module_has_option ("kokoro", "KokoroBert"));
-  g_assert_null (speechd_module_get_option ("kokoro", "KokoroPreload"));
+  g_assert_true (speechd_module_has_option ("foo", "KokoroPreload"));
+  g_assert_false (speechd_module_has_option ("foo", "KokoroBert"));
+  g_assert_null (speechd_module_get_option ("foo", "KokoroPreload"));
 
   /* under the example; numbers unquoted, names quoted */
-  g_assert_true (speechd_module_set_option ("kokoro", "KokoroPreload", "1", NULL));
-  g_assert_true (speechd_module_set_option ("kokoro", "KokoroIdleTimeout", "0", NULL));
-  g_assert_true (speechd_module_set_option ("kokoro", "KokoroVoice", "a b", NULL));
+  g_assert_true (speechd_module_set_option ("foo", "KokoroPreload", "1", NULL));
+  g_assert_true (speechd_module_set_option ("foo", "KokoroIdleTimeout", "0", NULL));
+  g_assert_true (speechd_module_set_option ("foo", "KokoroVoice", "a b", NULL));
   g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
   g_assert_cmpstr (contents, ==,
                    "# free the model after this many seconds\n"
@@ -290,36 +290,36 @@ test_module_option (void)
                    "KokoroThreads 2\n"
                    "KokoroVoice \"a b\"\n");
   g_free (contents);
-  value = speechd_module_get_option ("kokoro", "KokoroPreload");
+  value = speechd_module_get_option ("foo", "KokoroPreload");
   g_assert_cmpstr (value, ==, "1");
   g_free (value);
 
   /* a new value replaces the line in place */
-  g_assert_true (speechd_module_set_option ("kokoro", "KokoroIdleTimeout", "60", NULL));
-  value = speechd_module_get_option ("kokoro", "KokoroIdleTimeout");
+  g_assert_true (speechd_module_set_option ("foo", "KokoroIdleTimeout", "60", NULL));
+  value = speechd_module_get_option ("foo", "KokoroIdleTimeout");
   g_assert_cmpstr (value, ==, "60");
   g_free (value);
 
   /* also when the option ends the file (this read past the lines once) */
-  g_assert_true (speechd_module_set_option ("kokoro", "KokoroVoice", "c d", NULL));
+  g_assert_true (speechd_module_set_option ("foo", "KokoroVoice", "c d", NULL));
   g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
   g_assert_true (g_str_has_suffix (contents, "KokoroThreads 2\nKokoroVoice \"c d\"\n"));
   g_free (contents);
-  value = speechd_module_get_option ("kokoro", "KokoroVoice");
+  value = speechd_module_get_option ("foo", "KokoroVoice");
   g_assert_cmpstr (value, ==, "c d");
   g_free (value);
 
   /* removing gives back the file as it was */
-  g_assert_true (speechd_module_set_option ("kokoro", "KokoroPreload", NULL, NULL));
-  g_assert_true (speechd_module_set_option ("kokoro", "KokoroIdleTimeout", NULL, NULL));
-  g_assert_true (speechd_module_set_option ("kokoro", "KokoroVoice", NULL, NULL));
+  g_assert_true (speechd_module_set_option ("foo", "KokoroPreload", NULL, NULL));
+  g_assert_true (speechd_module_set_option ("foo", "KokoroIdleTimeout", NULL, NULL));
+  g_assert_true (speechd_module_set_option ("foo", "KokoroVoice", NULL, NULL));
   g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
   g_assert_cmpstr (contents, ==, start);
   g_free (contents);
 
   /* bad input is refused, nothing written */
-  g_assert_false (speechd_module_set_option ("kokoro", "KokoroPreload", "x\"y", NULL));
-  g_assert_false (speechd_module_set_option ("kokoro", "KokoroPreload", "1\nZ 2", NULL));
+  g_assert_false (speechd_module_set_option ("foo", "KokoroPreload", "x\"y", NULL));
+  g_assert_false (speechd_module_set_option ("foo", "KokoroPreload", "1\nZ 2", NULL));
   g_assert_false (speechd_module_set_option ("../x", "KokoroPreload", "1", NULL));
   g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
   g_assert_cmpstr (contents, ==, start);
@@ -327,6 +327,129 @@ test_module_option (void)
 
   g_free (path);
   g_free (conf_dir);
+  cleanup_config_home (dir);
+}
+
+
+
+/* our modules read the user's file on top of the system one: the dialog
+ * writes only what differs, and turns an old full copy into that */
+static void
+test_module_layered (void)
+{
+  gchar *dir = setup_config_home ();
+  gchar *sys = g_build_filename (dir, "sys", NULL);
+  gchar *sys_modules = g_build_filename (sys, "modules", NULL);
+  gchar *conf_dir = g_build_filename (dir, "speech-dispatcher", "modules", NULL);
+  gchar *path = g_build_filename (conf_dir, "sherpa-onnx-vulkan-rs.conf", NULL);
+  gchar *spath = g_build_filename (sys_modules, "sherpa-onnx-vulkan-rs.conf", NULL);
+  gchar *vpath = g_build_filename (conf_dir, "vosk.conf", NULL);
+  gchar *backup, *contents, *value;
+  const gchar *header =
+    "# Changes to the system file of this synthesizer, which is read first\n"
+    "# (xfce4-speech-settings writes only the options that differ from it)\n";
+
+  g_setenv ("SPEECH_SETTINGS_SYSCONFDIR", sys, TRUE);
+  g_assert_cmpint (g_mkdir_with_parents (sys_modules, 0700), ==, 0);
+  g_assert_cmpint (g_mkdir_with_parents (conf_dir, 0700), ==, 0);
+  g_assert_true (g_file_set_contents (spath,
+                                      "# the system file\n"
+                                      "SherpaFamilies \"supertonic piper vits\"\n"
+                                      "SherpaProvider \"vulkan\"\n"
+                                      "#SherpaPreload \"x\"\n"
+                                      "SherpaVoice \"ru\" \"piper-ru-irina-medium\"\n", -1, NULL));
+  /* a copy made before Supertonic ran on Vulkan, then changed */
+  g_assert_true (g_file_set_contents (path,
+                                      "# the system file\n"
+                                      "SherpaFamilies \"piper vits\"\n"
+                                      "SherpaProvider \"vulkan\"\n"
+                                      "#SherpaPreload \"x\"\n"
+                                      "SherpaIdleTimeout 300\n"
+                                      "SherpaIdleTimeout 0\n"
+                                      "SherpaVoice \"ru\" \"piper-ru-irina-medium\"\n"
+                                      "SherpaVoice \"de\" \"piper-de-thorsten-medium\"\n", -1, NULL));
+  g_assert_true (g_file_set_contents (vpath, "VoskThreads 2\n", -1, NULL));
+  {
+    gchar *svpath = g_build_filename (sys_modules, "vosk.conf", NULL);
+
+    g_assert_true (g_file_set_contents (svpath, "# vosk\nVoskThreads 2\n", -1, NULL));
+    g_free (svpath);
+  }
+
+  /* only the changed options stay, the old file is kept */
+  g_assert_true (speechd_modules_migrate ());
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  value = g_strconcat (header, "SherpaIdleTimeout 0\n"
+                       "SherpaVoice \"de\" \"piper-de-thorsten-medium\"\n", NULL);
+  g_assert_cmpstr (contents, ==, value);
+  g_free (value);
+  g_free (contents);
+  backup = g_strconcat (path, ".before-delta", NULL);
+  g_assert_true (g_file_test (backup, G_FILE_TEST_EXISTS));
+  /* nothing differs: the file goes, the system one is read */
+  g_assert_false (g_file_test (vpath, G_FILE_TEST_EXISTS));
+  g_assert_false (speechd_modules_migrate ());
+
+  /* reading sees both files */
+  value = speechd_module_get_option ("sherpa-onnx-vulkan-rs", "SherpaFamilies");
+  g_assert_cmpstr (value, ==, "supertonic piper vits");
+  g_free (value);
+  value = speechd_module_get_voice ("sherpa-onnx-vulkan-rs", "ru", NULL);
+  g_assert_cmpstr (value, ==, "piper-ru-irina-medium");
+  g_free (value);
+  value = speechd_module_get_voice ("sherpa-onnx-vulkan-rs", "de", NULL);
+  g_assert_cmpstr (value, ==, "piper-de-thorsten-medium");
+  g_free (value);
+  g_assert_true (speechd_module_has_option ("sherpa-onnx-vulkan-rs", "SherpaPreload"));
+
+  /* another voice is a line; the system's voice again removes it */
+  g_assert_true (speechd_module_set_voice ("sherpa-onnx-vulkan-rs", "ru", NULL, "supertonic-ru-female-1", NULL));
+  value = speechd_module_get_voice ("sherpa-onnx-vulkan-rs", "ru", NULL);
+  g_assert_cmpstr (value, ==, "supertonic-ru-female-1");
+  g_free (value);
+  g_assert_true (speechd_module_set_voice ("sherpa-onnx-vulkan-rs", "ru", NULL, "piper-ru-irina-medium", NULL));
+  g_assert_true (speechd_module_set_option ("sherpa-onnx-vulkan-rs", "SherpaPreload", "piper-en-john-medium", NULL));
+  g_assert_true (speechd_module_set_option ("sherpa-onnx-vulkan-rs", "SherpaIdleTimeout", "60", NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  value = g_strconcat (header, "SherpaVoice \"de\" \"piper-de-thorsten-medium\"\n"
+                       "SherpaPreload \"piper-en-john-medium\"\n"
+                       "SherpaIdleTimeout 60\n", NULL);
+  g_assert_cmpstr (contents, ==, value);
+  g_free (value);
+  g_free (contents);
+
+  /* clearing an option the system file sets writes it empty */
+  g_assert_true (speechd_module_set_option ("sherpa-onnx-vulkan-rs", "SherpaProvider", NULL, NULL));
+  value = speechd_module_get_option ("sherpa-onnx-vulkan-rs", "SherpaProvider");
+  g_assert_cmpstr (value, ==, "");
+  g_free (value);
+  g_assert_true (speechd_module_set_option ("sherpa-onnx-vulkan-rs", "SherpaProvider", "vulkan", NULL));
+
+  /* back to the system values: only the German voice is left */
+  g_assert_true (speechd_module_set_option ("sherpa-onnx-vulkan-rs", "SherpaPreload", NULL, NULL));
+  g_assert_true (speechd_module_set_option ("sherpa-onnx-vulkan-rs", "SherpaIdleTimeout", NULL, NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  value = g_strconcat (header, "SherpaVoice \"de\" \"piper-de-thorsten-medium\"\n", NULL);
+  g_assert_cmpstr (contents, ==, value);
+  g_free (value);
+  g_free (contents);
+
+  /* a voice of a new module starts a file of one line */
+  g_assert_true (speechd_module_set_voice ("vosk", "ru", NULL, "vosk-ru-female-2", NULL));
+  g_assert_true (g_file_get_contents (vpath, &contents, NULL, NULL));
+  value = g_strconcat (header, "VoskVoice \"ru\" \"vosk-ru-female-2\"\n", NULL);
+  g_assert_cmpstr (contents, ==, value);
+  g_free (value);
+  g_free (contents);
+
+  g_unsetenv ("SPEECH_SETTINGS_SYSCONFDIR");
+  g_free (backup);
+  g_free (vpath);
+  g_free (spath);
+  g_free (path);
+  g_free (conf_dir);
+  g_free (sys_modules);
+  g_free (sys);
   cleanup_config_home (dir);
 }
 
@@ -492,6 +615,7 @@ main (int    argc,
   g_test_add_func ("/config/no-user-file", test_no_user_file);
   g_test_add_func ("/config/detect-modules", test_detect_modules);
   g_test_add_func ("/config/module-option", test_module_option);
+  g_test_add_func ("/config/module-layered", test_module_layered);
   g_test_add_func ("/config/module-variant", test_module_variant);
   g_test_add_func ("/config/changed-on-disk", test_changed_on_disk);
   g_test_add_func ("/config/language-module", test_language_module);

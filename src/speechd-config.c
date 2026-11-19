@@ -1151,7 +1151,13 @@ module_config_path (const gchar *module,
     path = g_build_filename (g_get_user_config_dir (), "speech-dispatcher",
                              "modules", name, NULL);
   else
-    path = g_build_filename (SPEECHD_SYSCONFDIR, "modules", name, NULL);
+    {
+      /* the tests point this at their own directory */
+      const gchar *sys = g_getenv ("SPEECH_SETTINGS_SYSCONFDIR");
+
+      path = g_build_filename (sys != NULL && *sys != '\0' ? sys : SPEECHD_SYSCONFDIR,
+                               "modules", name, NULL);
+    }
   g_free (name);
 
   return path;
@@ -1191,14 +1197,37 @@ module_config_read_copy (const gchar *module,
   return lines;
 }
 
-/* The lines of the module configuration that Speech Dispatcher reads: the
- * user's copy, else the system one. NULL when there is none. */
+static gboolean module_layered (const gchar *module);
+
+/* The lines of the module configuration as the module sees it. Our modules
+ * read the system file and the user's one on top of it (linux-tts
+ * common/tts-config.c); Speech Dispatcher gives the others the user's copy,
+ * else the system one. NULL when there is none. */
 static gchar **
 module_config_read (const gchar *module)
 {
-  gchar **lines = module_config_read_copy (module, TRUE);
+  gchar **user = module_config_read_copy (module, TRUE);
+  gchar **sys;
+  GStrvBuilder *b;
+  gchar **all;
 
-  return lines != NULL ? lines : module_config_read_copy (module, FALSE);
+  if (user != NULL && !module_layered (module))
+    return user;
+  sys = module_config_read_copy (module, FALSE);
+  if (user == NULL)
+    return sys;
+  if (sys == NULL)
+    return user;
+
+  b = g_strv_builder_new ();
+  g_strv_builder_addv (b, (const gchar **) sys);
+  g_strv_builder_addv (b, (const gchar **) user);
+  all = g_strv_builder_end (b);
+  g_strv_builder_unref (b);
+  g_strfreev (sys);
+  g_strfreev (user);
+
+  return all;
 }
 
 /* Writes @lines as the user's copy of the module configuration */
@@ -1296,6 +1325,304 @@ speechd_module_option_key (const gchar *module,
   key[0] = g_ascii_toupper (key[0]);
 
   return key;
+}
+
+/* Our modules read the user's file on top of the system one, so the user's
+ * file holds only what differs from it: options added to the system file
+ * later reach the user (the copies made before 2026-11-20 kept the module
+ * "sherpa-onnx-vulkan-rs" from Supertonic voices). zonos3 is built by hand
+ * and reads one file. */
+static const gchar *const layered_modules[] = {
+  "sherpa-onnx", "sherpa-onnx-vulkan-rs", "piper-sherpa-onnx", "piper-sherpa-onnx-vulkan-rs",
+  "vosk", "kokoro", "teratts", "silero", NULL
+};
+
+#define DELTA_HEADER_1 "# Changes to the system file of this synthesizer, which is read first"
+#define DELTA_HEADER_2 "# (xfce4-speech-settings writes only the options that differ from it)"
+
+static gboolean
+module_layered (const gchar *module)
+{
+  /* by name: "piper" is also the generic module of Speech Dispatcher */
+  return module != NULL && g_strv_contains (layered_modules, module);
+}
+
+/* The identity of active line @line: its key, with the language for
+ * "<Module>Voice "lang" "voice"" (a line per language); its values joined
+ * by \x1f go to @value. NULL when the line is no option. */
+static gchar *
+line_identity (const gchar *line,
+               gchar      **value)
+{
+  const gchar *rest;
+  gchar       *key = NULL, *id;
+  gchar      **values;
+  gsize        klen;
+
+  rest = parse_option_line (line, FALSE, &key);
+  if (rest == NULL)
+    return NULL;
+  values = parse_values (rest);
+  klen = strlen (key);
+  if (klen > 5 && g_ascii_strcasecmp (key + klen - 5, "Voice") == 0
+      && g_strv_length (values) >= 2)
+    {
+      id = g_strdup_printf ("%s\x1f%s", key, values[0]);
+      g_free (key);
+    }
+  else
+    id = key;
+  if (value != NULL)
+    *value = g_strjoinv ("\x1f", values);
+  g_strfreev (values);
+  {
+    gchar *down = g_ascii_strdown (id, -1);
+
+    g_free (id);
+    return down;
+  }
+}
+
+/* The joined value of the last active line with identity @id in @lines */
+static gchar *
+lines_value (gchar      **lines,
+             const gchar *id)
+{
+  gchar *found = NULL;
+  guint  i;
+
+  for (i = 0; lines != NULL && lines[i] != NULL; i++)
+    {
+      gchar *value = NULL;
+      gchar *lid = line_identity (lines[i], &value);
+
+      if (lid != NULL && strcmp (lid, id) == 0)
+        {
+          g_free (found);
+          found = value;
+          value = NULL;
+        }
+      g_free (value);
+      g_free (lid);
+    }
+
+  return found;
+}
+
+/* Writes @lines as the user's file of layered module @module, with the
+ * header; removes the file when no option is left in it. */
+static gboolean
+module_delta_write (const gchar *module,
+                    GPtrArray   *lines,
+                    GError     **error)
+{
+  gboolean any = FALSE;
+  guint    i;
+
+  for (i = 0; i < lines->len && !any; i++)
+    {
+      gchar *id = line_identity (g_ptr_array_index (lines, i), NULL);
+
+      any = id != NULL;
+      g_free (id);
+    }
+
+  if (!any)
+    {
+      gchar *path = module_config_path (module, TRUE);
+      gboolean ok = TRUE;
+
+      if (g_unlink (path) != 0 && errno != ENOENT)
+        {
+          gint errsv = errno;
+
+          g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errsv),
+                       "%s: %s", path, g_strerror (errsv));
+          ok = FALSE;
+        }
+      g_free (path);
+      return ok;
+    }
+
+  for (i = lines->len; i-- > 0;)
+    if (strcmp (g_ptr_array_index (lines, i), DELTA_HEADER_1) == 0
+        || strcmp (g_ptr_array_index (lines, i), DELTA_HEADER_2) == 0)
+      g_ptr_array_remove_index (lines, i);
+  g_ptr_array_insert (lines, 0, (gpointer) DELTA_HEADER_2);
+  g_ptr_array_insert (lines, 0, (gpointer) DELTA_HEADER_1);
+
+  return module_config_write (module, lines, error);
+}
+
+/* Sets the line with identity @id in the user's file of layered module
+ * @module to @new_line (NULL: back to the system value). A line equal to
+ * the system file is left out; to clear an option the system file sets,
+ * @empty_line ("Key """) is written instead of nothing. */
+static gboolean
+module_delta_set (const gchar *module,
+                  const gchar *id,
+                  const gchar *new_line,
+                  const gchar *empty_line,
+                  GError     **error)
+{
+  gchar    **user = module_config_read_copy (module, TRUE);
+  gchar    **sys = module_config_read_copy (module, FALSE);
+  gchar     *sys_value = lines_value (sys, id);
+  gchar     *new_value = NULL;
+  GPtrArray *out = g_ptr_array_new ();
+  gboolean   changed = FALSE, ok = TRUE;
+  const gchar *add = NULL;
+  guint      i;
+
+  if (new_line != NULL)
+    {
+      gchar *nid = line_identity (new_line, &new_value);
+
+      g_free (nid);
+      if (g_strcmp0 (new_value, sys_value) != 0)
+        add = new_line;
+    }
+  else if (sys_value != NULL && *sys_value != '\0')
+    add = empty_line;
+
+  for (i = 0; user != NULL && user[i] != NULL; i++)
+    {
+      gchar *lid = line_identity (user[i], NULL);
+
+      if (lid != NULL && strcmp (lid, id) == 0)
+        {
+          /* the same line stays where it is */
+          if (add != NULL && strcmp (user[i], add) == 0)
+            {
+              g_ptr_array_add (out, user[i]);
+              add = NULL;
+            }
+          else
+            changed = TRUE;
+        }
+      else
+        g_ptr_array_add (out, user[i]);
+      g_free (lid);
+    }
+  if (add != NULL)
+    {
+      g_ptr_array_add (out, (gpointer) add);
+      changed = TRUE;
+    }
+
+  if (changed)
+    ok = module_delta_write (module, out, error);
+
+  g_ptr_array_free (out, TRUE);
+  g_strfreev (user);
+  g_strfreev (sys);
+  g_free (sys_value);
+  g_free (new_value);
+
+  return ok;
+}
+
+/* Turns the user's full copy of layered module @module (made before
+ * 2026-11-20) into the options that differ from the system file, keeping
+ * the old file as NAME.conf.before-delta. "<Module>Families" is dropped: the
+ * dialog never sets it and the package adds families to it. TRUE when the
+ * file changed (the server has to be reloaded). */
+static gboolean
+module_migrate (const gchar *module)
+{
+  gchar    **user, **sys;
+  GPtrArray *out;
+  GHashTable *last;
+  gchar     *path, *backup, *contents = NULL;
+  gboolean   ok;
+  guint      i;
+
+  if (!module_layered (module))
+    return FALSE;
+  user = module_config_read_copy (module, TRUE);
+  if (user == NULL || (user[0] != NULL && strcmp (user[0], DELTA_HEADER_1) == 0))
+    {
+      g_strfreev (user);
+      return FALSE;
+    }
+  sys = module_config_read_copy (module, FALSE);
+
+  /* the last line of each identity counts, as for the module */
+  last = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+  for (i = 0; user[i] != NULL; i++)
+    {
+      gchar *id = line_identity (user[i], NULL);
+
+      if (id != NULL)
+        g_hash_table_replace (last, id, GUINT_TO_POINTER (i));
+    }
+
+  out = g_ptr_array_new ();
+  for (i = 0; user[i] != NULL; i++)
+    {
+      gchar *value = NULL, *sys_value;
+      gchar *id = line_identity (user[i], &value);
+      gsize  len;
+
+      if (id == NULL || GPOINTER_TO_UINT (g_hash_table_lookup (last, id)) != i)
+        {
+          g_free (id);
+          g_free (value);
+          continue;
+        }
+      len = strlen (id);
+      sys_value = lines_value (sys, id);
+      if (!(len > 8 && strcmp (id + len - 8, "families") == 0)
+          && g_strcmp0 (value, sys_value) != 0)
+        g_ptr_array_add (out, user[i]);
+      g_free (sys_value);
+      g_free (value);
+      g_free (id);
+    }
+
+  path = module_config_path (module, TRUE);
+  backup = g_strconcat (path, ".before-delta", NULL);
+  ok = g_file_get_contents (path, &contents, NULL, NULL)
+       && (g_file_test (backup, G_FILE_TEST_EXISTS)
+           || g_file_set_contents (backup, contents, -1, NULL))
+       && module_delta_write (module, out, NULL);
+
+  g_free (contents);
+  g_free (backup);
+  g_free (path);
+  g_ptr_array_free (out, TRUE);
+  g_hash_table_unref (last);
+  g_strfreev (sys);
+  g_strfreev (user);
+
+  return ok;
+}
+
+/* Migrates the user's full copies of our modules' files (module_migrate).
+ * TRUE when a file changed: the server has to be reloaded. */
+gboolean
+speechd_modules_migrate (void)
+{
+  gchar       *dir = g_build_filename (g_get_user_config_dir (), "speech-dispatcher",
+                                       "modules", NULL);
+  GDir        *d = g_dir_open (dir, 0, NULL);
+  const gchar *name;
+  gboolean     changed = FALSE;
+
+  while (d != NULL && (name = g_dir_read_name (d)) != NULL)
+    if (g_str_has_suffix (name, ".conf"))
+      {
+        gchar *module = g_strndup (name, strlen (name) - 5);
+
+        if (module_migrate (module))
+          changed = TRUE;
+        g_free (module);
+      }
+  if (d != NULL)
+    g_dir_close (d);
+  g_free (dir);
+
+  return changed;
 }
 
 static gchar *
@@ -1448,6 +1775,19 @@ speechd_module_set_voice (const gchar *module,
     }
 
   voice_key = module_voice_key (module);
+  if (module_layered (module))
+    {
+      gchar *id;
+
+      module_migrate (module);
+      new_line = g_strdup_printf ("%s \"%s\" \"%s\"", voice_key, language, voice);
+      id = line_identity (new_line, NULL);
+      ok = module_delta_set (module, id, new_line, NULL, error);
+      g_free (id);
+      g_free (new_line);
+      g_free (voice_key);
+      return ok;
+    }
   if (setting == SPEECHD_VOICE_SETTING_MODULE)
     new_line = g_strdup_printf ("%s \"%s\" \"%s\"", voice_key, language, voice);
   else
@@ -1607,6 +1947,19 @@ speechd_module_set_option (const gchar *module,
     new_line = g_strdup_printf ("%s %s", key, value);
   else if (value != NULL)
     new_line = g_strdup_printf ("%s \"%s\"", key, value);
+
+  if (module_layered (module))
+    {
+      gchar *id, *empty = g_strdup_printf ("%s \"\"", key);
+
+      module_migrate (module);
+      id = g_ascii_strdown (key, -1);
+      ok = module_delta_set (module, id, new_line, empty, error);
+      g_free (id);
+      g_free (empty);
+      g_free (new_line);
+      return ok;
+    }
 
   lines = module_config_read (module);
   out = g_ptr_array_new ();
