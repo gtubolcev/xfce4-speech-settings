@@ -45,6 +45,8 @@
  * times (sherpa-onnx with a preloaded model needs several seconds) */
 #define RETRY_DELAY_MS 1000
 #define RETRY_MAX 20
+/* how often the module list is compared with the server's */
+#define WATCH_DELAY_MS 2000
 /* Built-in defaults of Speech Dispatcher, used when a key is not set */
 #define DEFAULT_LANGUAGE "en-US"
 /* the test text grows up to this many lines, then scrolls */
@@ -207,6 +209,7 @@ typedef struct
   gchar         *typed_language;
   guint          refill_id;
   guint          refill_tries;  /* refills in a row that found no voices */
+  guint          watch_id;
   guint          fit_id;        /* fits test_view's height to its text */
   /* the server the module list came from (its socket), see
    * speech_page_server_changed */
@@ -1977,6 +1980,42 @@ speech_page_refill_modules (gpointer data)
 /* The list of modules is read when the window opens; when the server was
  * restarted meanwhile (a module installed or removed), read it again once the
  * window is used */
+/* A module that starts slowly (sherpa-onnx-vulkan-rs sets up the GPU) joins
+ * the server's list after the others; a scan made in between, after a
+ * reload or a package update, misses it. The list costs one short request:
+ * compare it every few seconds and read everything again when it changed,
+ * not while the synthesizer list is open. */
+static gboolean
+speech_page_watch_modules (gpointer data)
+{
+  SpeechPage *page = data;
+  gboolean    shown = FALSE;
+  gchar     **modules;
+  guint       i;
+
+  if (page->connection == NULL || page->refill_id != 0 || page->updating)
+    return G_SOURCE_CONTINUE;
+
+  g_object_get (page->module_combo, "popup-shown", &shown, NULL);
+  if (shown)
+    return G_SOURCE_CONTINUE;
+
+  modules = spd_list_modules (page->connection);
+  if (modules == NULL)
+    return G_SOURCE_CONTINUE;
+
+  for (i = 0; modules[i] != NULL && page->modules != NULL
+              && page->modules[i] != NULL; i++)
+    if (strcmp (modules[i], page->modules[i]) != 0)
+      break;
+
+  if (page->modules == NULL || modules[i] != NULL || page->modules[i] != NULL)
+    page->refill_id = g_idle_add (speech_page_refill_modules, page);
+
+  g_strfreev (modules);
+  return G_SOURCE_CONTINUE;
+}
+
 static void
 speech_page_window_active (GObject    *window,
                            GParamSpec *pspec,
@@ -2200,6 +2239,8 @@ speech_page_free (gpointer data)
 
   if (page->refill_id != 0)
     g_source_remove (page->refill_id);
+  if (page->watch_id != 0)
+    g_source_remove (page->watch_id);
   if (page->fit_id != 0)
     g_source_remove (page->fit_id);
 
@@ -2483,6 +2524,8 @@ speech_page_new (void)
 
   /* the language first: it decides which synthesizers can speak */
   speech_page_scan_modules (page);
+  page->watch_id = g_timeout_add (WATCH_DELAY_MS, speech_page_watch_modules,
+                                  page);
 
   page->language_combo = gtk_combo_box_text_new_with_entry ();
   entry = gtk_bin_get_child (GTK_BIN (page->language_combo));
