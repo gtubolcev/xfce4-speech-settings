@@ -1591,6 +1591,7 @@ speechd_module_set_option (const gchar *module,
   gint       at = -1, example = -1;
   guint      i;
   gboolean   changed = FALSE;
+  gboolean   kept = FALSE;  /* the line at @at is already new_line */
   gboolean   ok = TRUE;
 
   if (module == NULL || *module == '\0' || strchr (module, '/') != NULL
@@ -1620,6 +1621,7 @@ speechd_module_set_option (const gchar *module,
           if (at < 0 && new_line != NULL && strcmp (lines[i], new_line) == 0)
             {
               at = out->len;
+              kept = TRUE;
               g_ptr_array_add (out, lines[i]);
             }
           else
@@ -1642,8 +1644,9 @@ speechd_module_set_option (const gchar *module,
       g_free (k);
     }
 
-  if (new_line != NULL
-      && (at < 0 || strcmp (g_ptr_array_index (out, at), new_line) != 0))
+  /* @at is where the first active line was: it was dropped unless kept, so
+   * it may be out->len (the option ended the file) */
+  if (new_line != NULL && !kept)
     {
       if (at < 0)
         at = example >= 0 ? example + 1 : (gint) out->len;

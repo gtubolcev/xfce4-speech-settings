@@ -300,6 +300,15 @@ test_module_option (void)
   g_assert_cmpstr (value, ==, "60");
   g_free (value);
 
+  /* also when the option ends the file (this read past the lines once) */
+  g_assert_true (speechd_module_set_option ("kokoro", "KokoroVoice", "c d", NULL));
+  g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+  g_assert_true (g_str_has_suffix (contents, "KokoroThreads 2\nKokoroVoice \"c d\"\n"));
+  g_free (contents);
+  value = speechd_module_get_option ("kokoro", "KokoroVoice");
+  g_assert_cmpstr (value, ==, "c d");
+  g_free (value);
+
   /* removing gives back the file as it was */
   g_assert_true (speechd_module_set_option ("kokoro", "KokoroPreload", NULL, NULL));
   g_assert_true (speechd_module_set_option ("kokoro", "KokoroIdleTimeout", NULL, NULL));
