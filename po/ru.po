@@ -548,3 +548,70 @@ msgstr "архив повреждён или не поддерживается (
 
 #~ msgid "Audio"
 #~ msgstr "Звук"
+
+#: src/speech-page.c
+msgid "Read _numbers, dates and abbreviations as words"
+msgstr "Читать _числа, даты и сокращения словами"
+
+#: src/speech-page.c
+msgid ""
+"The selected synthesizer writes out numbers, dates, units and abbreviations "
+"in full before reading (Russian for now). Without it the voice reads the "
+"text as it is."
+msgstr ""
+"Выбранный синтезатор перед чтением расписывает словами числа, даты, единицы "
+"и сокращения (пока для русского). Без этого голос читает текст как есть."
+
+#: src/speech-page.c
+msgid "Take stress and ё from a _dictionary"
+msgstr "Брать ударения и ё из _словаря"
+
+#: src/speech-page.c
+msgid ""
+"Before reading, Russian text gets the stress and the letter ё of a "
+"pronunciation dictionary, as far as the voice can use them (Piper voices get "
+"only ё). Words with two possible stresses (зАмок, замОк) are not resolved "
+"yet: the dictionary picks one."
+msgstr ""
+"Перед чтением русский текст получает ударения и букву ё из словаря "
+"произношения, насколько голос умеет их использовать (голоса Piper получают "
+"только ё). Слова с двумя возможными ударениями (зАмок, замОк) пока не "
+"различаются: словарь выбирает одно."
+
+#: src/speech-page.c
+msgid "The folder for the copy must be a full path, such as ~/speech-copy."
+msgstr "Папка для копии должна быть полным путём, например ~/speech-copy."
+
+#: src/speech-page.c
+msgid "Folder for the Copy"
+msgstr "Папка для копии"
+
+#: src/speech-page.c
+msgid "_Select"
+msgstr "_Выбрать"
+
+#: src/speech-page.c
+msgid "Save a cop_y of the speech to files"
+msgstr "Сохранять _копию речи в файлы"
+
+#: src/speech-page.c
+msgid ""
+"For debugging: while it speaks, the selected synthesizer also writes each "
+"message to output1.wav, output2.wav and so on in the folder below, and the "
+"text the voice got, after numbers and stress, to output1.txt and so on."
+msgstr ""
+"Для отладки: выбранный синтезатор, произнося, ещё и записывает каждое "
+"сообщение в output1.wav, output2.wav и так далее в папке ниже, а текст, "
+"который получил голос (после чисел и ударений), — в output1.txt и так далее."
+
+#: src/speech-page.c
+msgid ""
+"A full path or ~/...; the folder is created when needed. Enter or leaving the "
+"field saves it."
+msgstr ""
+"Полный путь или ~/...; папка создаётся при необходимости. Сохраняется по "
+"Enter или при выходе из поля."
+
+#: src/speech-page.c
+msgid "_Browse…"
+msgstr "_Обзор…"
