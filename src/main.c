@@ -191,7 +191,7 @@ main (gint    argc,
   dialog = gtk_dialog_new ();
 #endif
   gtk_window_set_title (GTK_WINDOW (dialog), _("Speech"));
-  gtk_window_set_icon_name (GTK_WINDOW (dialog), "audio-speakers");
+  gtk_window_set_icon_name (GTK_WINDOW (dialog), PACKAGE);
   gtk_window_set_default_size (GTK_WINDOW (dialog), 560, -1);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       page, TRUE, TRUE, 0);
