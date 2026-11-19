@@ -194,6 +194,9 @@ typedef struct
   GtkWidget     *audio_combo;
   GtkWidget     *normalize_check;   /* TextNormalization of the synthesizer */
   GtkWidget     *stress_check;      /* TextStress of the synthesizer */
+  GtkWidget     *copy_check;        /* AudioCopyDir of the synthesizer */
+  GtkWidget     *copy_box;          /* the directory, shown when on */
+  GtkWidget     *copy_entry;
   GtkWidget     *test_view;     /* GtkTextView, grows with its text */
   GtkWidget     *test_grid;
   /* the sentence put into test_view for a language, while the user keeps it */
@@ -1409,11 +1412,175 @@ speech_page_sync_text_option (SpeechPage       *page,
   g_free (module);
 }
 
+/* "AudioCopyDir" of our modules: a copy of what they speak, outputN.wav
+ * and outputN.txt in a directory; no line means no copy */
+#define COPY_KEY "AudioCopyDir"
+#define COPY_DEFAULT_DIR "~/speech-copy"
+
+static void
+speech_page_sync_copy (SpeechPage *page)
+{
+  gchar   *module, *value = NULL;
+  gboolean supported = FALSE;
+  gboolean updating = page->updating;
+
+  if (page->copy_check == NULL)
+    return;
+  module = speech_page_get_module (page);
+  if (module != NULL && *module != '\0')
+    supported = speechd_module_has_option (module, COPY_KEY);
+  if (supported)
+    value = speechd_module_get_option (module, COPY_KEY);
+
+  page->updating = TRUE;
+  gtk_widget_set_visible (page->copy_check, supported);
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (page->copy_check),
+                                value != NULL && *value != '\0');
+  /* the field keeps the last directory while off */
+  if (value != NULL && *value != '\0')
+    gtk_entry_set_text (GTK_ENTRY (page->copy_entry), value);
+  gtk_widget_set_visible (page->copy_box, supported && value != NULL && *value != '\0');
+  page->updating = updating;
+  g_free (value);
+  g_free (module);
+}
+
 static void
 speech_page_sync_text_options (SpeechPage *page)
 {
   speech_page_sync_text_option (page, page->normalize_check, &text_normalization);
   speech_page_sync_text_option (page, page->stress_check, &text_stress);
+  speech_page_sync_copy (page);
+}
+
+/* The directory of the field, as the module takes it: absolute or ~/...;
+ * NULL (and a message) for what it would refuse */
+static gchar *
+speech_page_copy_dir (SpeechPage *page)
+{
+  gchar *dir = g_strstrip (g_strdup (gtk_entry_get_text (GTK_ENTRY (page->copy_entry))));
+
+  if (*dir == '\0')
+    {
+      g_free (dir);
+      return g_strdup (COPY_DEFAULT_DIR);
+    }
+  if (strchr (dir, '"') != NULL || strchr (dir, '\n') != NULL
+      || !(g_path_is_absolute (dir) || g_strcmp0 (dir, "~") == 0
+           || g_str_has_prefix (dir, "~/")))
+    {
+      speech_page_show_message (page, GTK_MESSAGE_ERROR,
+                                _("The folder for the copy must be a full path, "
+                                  "such as ~/speech-copy."));
+      g_free (dir);
+      return NULL;
+    }
+  return dir;
+}
+
+static void
+speech_page_copy_apply (SpeechPage *page)
+{
+  gchar *module, *dir = NULL;
+  gboolean on;
+
+  if (page->updating)
+    return;
+  module = speech_page_get_module (page);
+  if (module == NULL || *module == '\0')
+    {
+      g_free (module);
+      return;
+    }
+  on = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (page->copy_check));
+  if (on)
+    {
+      dir = speech_page_copy_dir (page);
+      if (dir == NULL)
+        {
+          g_free (module);
+          return;
+        }
+      page->updating = TRUE;
+      gtk_entry_set_text (GTK_ENTRY (page->copy_entry), dir);
+      page->updating = FALSE;
+    }
+  gtk_widget_set_visible (page->copy_box, on);
+  speech_page_set_module_option (page, module, COPY_KEY, dir);
+  g_free (dir);
+  g_free (module);
+}
+
+static void
+speech_page_copy_toggled (GtkToggleButton *button,
+                          SpeechPage      *page)
+{
+  speech_page_copy_apply (page);
+}
+
+static void
+speech_page_copy_entry_activate (GtkEntry   *entry,
+                                 SpeechPage *page)
+{
+  speech_page_copy_apply (page);
+}
+
+static gboolean
+speech_page_copy_entry_focus_out (GtkWidget  *entry,
+                                  GdkEvent   *event,
+                                  SpeechPage *page)
+{
+  speech_page_copy_apply (page);
+  return FALSE;
+}
+
+static void
+speech_page_copy_browse (GtkButton  *button,
+                         SpeechPage *page)
+{
+  GtkFileChooserNative *chooser;
+  gchar *dir;
+
+  chooser = gtk_file_chooser_native_new (_("Folder for the Copy"),
+                                         GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (button))),
+                                         GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
+                                         _("_Select"), _("_Cancel"));
+  gtk_file_chooser_set_create_folders (GTK_FILE_CHOOSER (chooser), TRUE);
+  dir = speech_page_copy_dir (page);
+  if (dir != NULL)
+    {
+      gchar *path = g_str_has_prefix (dir, "~")
+                    ? g_build_filename (g_get_home_dir (), dir + 1, NULL) : g_strdup (dir);
+
+      if (g_file_test (path, G_FILE_TEST_IS_DIR))
+        gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (chooser), path);
+      else
+        gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (chooser), g_get_home_dir ());
+      g_free (path);
+      g_free (dir);
+    }
+  if (gtk_native_dialog_run (GTK_NATIVE_DIALOG (chooser)) == GTK_RESPONSE_ACCEPT)
+    {
+      gchar *chosen = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (chooser));
+
+      if (chosen != NULL)
+        {
+          const gchar *home = g_get_home_dir ();
+          gsize        len = strlen (home);
+          gchar       *shown;
+
+          /* ~/ keeps the setting valid if the home moves */
+          if (g_str_has_prefix (chosen, home) && chosen[len] == G_DIR_SEPARATOR)
+            shown = g_strconcat ("~", chosen + len, NULL);
+          else
+            shown = g_strdup (chosen);
+          gtk_entry_set_text (GTK_ENTRY (page->copy_entry), shown);
+          speech_page_copy_apply (page);
+          g_free (shown);
+          g_free (chosen);
+        }
+    }
+  g_object_unref (chooser);
 }
 
 static void
@@ -2437,16 +2604,55 @@ speech_page_new (void)
                     G_CALLBACK (speech_page_normalize_toggled), page);
 
   page->stress_check =
-    gtk_check_button_new_with_mnemonic (_("Mark the stress from a _dictionary"));
+    gtk_check_button_new_with_mnemonic (_("Take stress and ё from a _dictionary"));
   gtk_widget_set_tooltip_text (page->stress_check,
-                               _("The selected synthesizer puts the stress marks "
-                                 "of a pronunciation dictionary into Russian text "
-                                 "before reading. Words with two possible "
-                                 "stresses (зАмок, замОк) are left to the voice."));
+                               _("Before reading, Russian text gets the stress "
+                                 "and the letter ё of a pronunciation dictionary, "
+                                 "as far as the voice can use them (Piper voices "
+                                 "get only ё). Words with two possible stresses "
+                                 "(зАмок, замОк) are not resolved yet: the "
+                                 "dictionary picks one."));
   gtk_widget_set_no_show_all (page->stress_check, TRUE);
   gtk_grid_attach (GTK_GRID (grid), page->stress_check, 1, 4, 1, 1);
   g_signal_connect (page->stress_check, "toggled",
                     G_CALLBACK (speech_page_stress_toggled), page);
+
+  page->copy_check =
+    gtk_check_button_new_with_mnemonic (_("Save a cop_y of the speech to files"));
+  gtk_widget_set_tooltip_text (page->copy_check,
+                               _("For debugging: while it speaks, the selected "
+                                 "synthesizer also writes each message to "
+                                 "output1.wav, output2.wav and so on in the "
+                                 "folder below, and the text the voice got, "
+                                 "after numbers and stress, to output1.txt "
+                                 "and so on."));
+  gtk_widget_set_no_show_all (page->copy_check, TRUE);
+  gtk_grid_attach (GTK_GRID (grid), page->copy_check, 1, 5, 1, 1);
+  g_signal_connect (page->copy_check, "toggled",
+                    G_CALLBACK (speech_page_copy_toggled), page);
+  {
+    GtkWidget *browse;
+
+    page->copy_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_widget_set_margin_start (page->copy_box, 24);
+    page->copy_entry = gtk_entry_new ();
+    gtk_entry_set_text (GTK_ENTRY (page->copy_entry), COPY_DEFAULT_DIR);
+    gtk_widget_set_hexpand (page->copy_entry, TRUE);
+    gtk_widget_set_tooltip_text (page->copy_entry,
+                                 _("A full path or ~/...; the folder is created "
+                                   "when needed. Enter or leaving the field saves it."));
+    gtk_box_pack_start (GTK_BOX (page->copy_box), page->copy_entry, TRUE, TRUE, 0);
+    browse = gtk_button_new_with_mnemonic (_("_Browse…"));
+    gtk_box_pack_start (GTK_BOX (page->copy_box), browse, FALSE, FALSE, 0);
+    gtk_widget_show_all (page->copy_box);
+    gtk_widget_set_no_show_all (page->copy_box, TRUE);
+    gtk_grid_attach (GTK_GRID (grid), page->copy_box, 1, 6, 1, 1);
+    g_signal_connect (page->copy_entry, "activate",
+                      G_CALLBACK (speech_page_copy_entry_activate), page);
+    g_signal_connect (page->copy_entry, "focus-out-event",
+                      G_CALLBACK (speech_page_copy_entry_focus_out), page);
+    g_signal_connect (browse, "clicked", G_CALLBACK (speech_page_copy_browse), page);
+  }
   speech_page_sync_text_options (page);
 
   /* Test */
