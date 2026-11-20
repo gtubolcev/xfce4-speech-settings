@@ -24,7 +24,8 @@
  * (rhasspy/piper-voices on Hugging Face); the licence of a voice is the
  * "License:" line of its MODEL_CARD there. The voice itself (<key>.onnx and
  * <key>.onnx.json) comes from there too, checked against the MD5 sums of
- * voices.json, and is made into the form sherpa-onnx reads the way its
+ * voices.json (from the same site, so they find a damaged download, not a
+ * changed one: that is left to HTTPS), and is made into the form sherpa-onnx reads the way its
  * scripts/piper/add_meta_data.py does: tokens.txt from the phoneme map, the
  * metadata appended to the model, espeak-ng-data a link to the shared copy
  * of the piper-espeak-ng-data package.

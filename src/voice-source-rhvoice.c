@@ -22,6 +22,10 @@
  * (rhvoice-<language>, through PackageKit); otherwise the zip archives of
  * the language and the voice are unpacked into ~/.local/share/RHVoice,
  * where a patched speech-dispatcher-rhvoice finds them.
+ *
+ * Each archive is checked against the MD5 sum of the catalogue. The sum
+ * comes from the same site as the archive, so it finds a damaged download,
+ * not a changed one: that is left to HTTPS.
  */
 
 #ifndef _GNU_SOURCE
