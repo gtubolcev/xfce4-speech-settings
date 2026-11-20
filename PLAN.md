@@ -21,6 +21,38 @@
   `Zonos3Voice "<lang>" "<voice>"`. Native modules (espeak-ng, rhvoice): list greyed out, the
   "Voice type" row appears instead. The test speaks with the chosen voice.
 
+## Work order (user, 2026-11-20) — current
+1. Model probe in a child process (architecture review §1.9а), so that a broken model does
+   not crash the module.
+2. Bugs: speechd SEGV on SIGHUP; the de locale shows English messages and the German
+   translation of the dialog; Firefox extension (block selection in iframes, table reading
+   order, native host log).
+3. Normalizer with per-engine profiles (linux-tts/RESEARCH-text-normalization.md §5, including
+   the rules and test sets from supertonic-android).
+4. Language survey with tables for the EU languages, GB and North America:
+   - which voices and engines exist per language;
+   - languages with no voices anywhere;
+   - languages with voices but no normalization rules easily found online.
+   Later, only as plans: the same survey along other lists (former USSR countries, peoples of
+   the former USSR, countries by GDP and GDP per capita, number of speakers) to choose the
+   next steps.
+
+## Work order (user, 2026-11-20) — current
+1. Model probe in a child process (architecture review §1.9а), so that a broken model does
+   not crash the module.
+2. Bugs: speechd SEGV on SIGHUP; the de locale shows English messages and the German
+   translation of the dialog; Firefox extension (block selection in iframes, table reading
+   order, native host log).
+3. Normalizer with per-engine profiles (linux-tts/RESEARCH-text-normalization.md §5, including
+   the rules and test sets from supertonic-android).
+4. Language survey with tables for the EU languages, GB and North America:
+   - which voices and engines exist per language;
+   - languages with no voices anywhere;
+   - languages with voices but no normalization rules easily found online.
+   Later, only as plans: the same survey along other lists (former USSR countries, peoples of
+   the former USSR, countries by GDP and GDP per capita, number of speakers) to choose the
+   next steps.
+
 ## Stages (user, 2026-11-16) — overrides the order below
 **Stage 1 — a decent working TTS for speech-dispatcher, soon.** What works now is enough;
 no new engines beyond those listed here.
@@ -349,6 +381,32 @@ Three goals, in this order:
   limit which modules start; the GUI then lists only the chosen ones, other engines still selectable by
   clients like Orca. Measure RSS before and after.
 - README.
+
+## Ideas from supertonic-android (2026-11-20; linux-tts/RESEARCH-text-normalization.md §8)
+- Supertonic: a `NumSteps` setting in sd_sherpa (flow steps). They use 6 instead of 8, for
+  about 20 % less CPU; check the quality on our voices.
+- Supertonic voice import in the universal voice manager: a style `.json` or the pair
+  `style_ttl.npy` + `style_dp.npy`.
+- Shtorm PocketTTS RU (CC BY 4.0) through sherpa's Pocket path, with their 206 synthetic
+  Russian reference voices (release shtorm-designed-voices-v1). First check their export
+  (`tools/export_shtorm.py`) and the licence of the voice packs.
+- TeraTTS: 15 extra voice styles (about 0.8 MB) for sd_teratts. Check the licence and the
+  format (`docs/silero-tera-voice-format.md`).
+- Sentence ends fade out instead of being clipped. Above about 1.5× speed, time-stretch without
+  changing the pitch. Check whether our modules need either.
+
+## Ideas from supertonic-android (2026-11-20; linux-tts/RESEARCH-text-normalization.md §8)
+- Supertonic: a `NumSteps` setting in sd_sherpa (flow steps). They use 6 instead of 8, for
+  about 20 % less CPU; check the quality on our voices.
+- Supertonic voice import in the universal voice manager: a style `.json` or the pair
+  `style_ttl.npy` + `style_dp.npy`.
+- Shtorm PocketTTS RU (CC BY 4.0) through sherpa's Pocket path, with their 206 synthetic
+  Russian reference voices (release shtorm-designed-voices-v1). First check their export
+  (`tools/export_shtorm.py`) and the licence of the voice packs.
+- TeraTTS: 15 extra voice styles (about 0.8 MB) for sd_teratts. Check the licence and the
+  format (`docs/silero-tera-voice-format.md`).
+- Sentence ends fade out instead of being clipped. Above about 1.5× speed, time-stretch without
+  changing the pitch. Check whether our modules need either.
 
 ## Later
 - **Loading indication when switching modules and voices** (user, 2026-11-20). The
