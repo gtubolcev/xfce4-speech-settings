@@ -1233,9 +1233,10 @@ speech_page_new (void)
     }
 
   /* full copies of our modules' files, made by older versions, become the
-   * options that differ from the system files; the modules reread them */
-  if (speechd_modules_migrate ())
-    speech_page_voices_changed (page);
+   * options that differ from the system files. What the modules use stays
+   * the same, so the server is not reloaded (that would cut off speech
+   * because the dialog was opened) */
+  speechd_modules_migrate ();
 
   /* AddModule lines hide every module that is not listed */
   page->modules_bar = gtk_info_bar_new_with_buttons (

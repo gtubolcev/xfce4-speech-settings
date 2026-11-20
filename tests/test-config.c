@@ -338,6 +338,77 @@ test_module_option (void)
 
 /* our modules read the user's file on top of the system one: the dialog
  * writes only what differs, and turns an old full copy into that */
+/* migration happens once: hand-written files, a comment above our header
+ * and families set on purpose stay; a second full copy gets its own backup */
+static void
+test_module_migrate_once (void)
+{
+  gchar *dir = setup_config_home ();
+  gchar *sys = g_build_filename (dir, "sys", NULL);
+  gchar *sys_modules = g_build_filename (sys, "modules", NULL);
+  gchar *conf_dir = g_build_filename (dir, "speech-dispatcher", "modules", NULL);
+  gchar *path = g_build_filename (conf_dir, "sherpa-onnx.conf", NULL);
+  gchar *spath = g_build_filename (sys_modules, "sherpa-onnx.conf", NULL);
+  gchar *backup = g_strconcat (path, ".before-delta", NULL);
+  gchar *contents;
+  const gchar *system =
+    "# the system file\n"
+    "# with comments\n"
+    "SherpaFamilies \"supertonic piper vits\"\n"
+    "SherpaProvider \"cpu\"\n"
+    "SherpaVoice \"ru\" \"piper-ru-irina-medium\"\n";
+  const gchar *hand[] = {
+    "SherpaFamilies \"piper\"\nSherpaVoice \"ru\" \"piper-ru-dmitri-medium\"\n",
+    "# mine\n# Changes to the system file of this synthesizer, which is read first\n"
+    "SherpaProvider \"cpu\"\nSherpaFamilies \"piper\"\n",
+  };
+  GDir *d;
+  const gchar *name;
+  guint backups = 0, i;
+
+  g_setenv ("SPEECH_SETTINGS_SYSCONFDIR", sys, TRUE);
+  g_assert_cmpint (g_mkdir_with_parents (sys_modules, 0700), ==, 0);
+  g_assert_cmpint (g_mkdir_with_parents (conf_dir, 0700), ==, 0);
+  g_assert_true (g_file_set_contents (spath, system, -1, NULL));
+  g_assert_true (g_file_set_contents (backup, "older\n", -1, NULL));
+
+  for (i = 0; i < G_N_ELEMENTS (hand); i++)
+    {
+      g_assert_true (g_file_set_contents (path, hand[i], -1, NULL));
+      g_assert_false (speechd_modules_migrate ());
+      g_assert_true (g_file_get_contents (path, &contents, NULL, NULL));
+      g_assert_cmpstr (contents, ==, hand[i]);
+      g_free (contents);
+    }
+
+  /* a full copy, though .before-delta is there from an earlier one */
+  contents = g_strconcat (system, "SherpaProvider \"vulkan\"\n", NULL);
+  g_assert_true (g_file_set_contents (path, contents, -1, NULL));
+  g_free (contents);
+  g_assert_true (speechd_modules_migrate ());
+  g_assert_false (speechd_modules_migrate ());
+  g_assert_true (g_file_get_contents (backup, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==, "older\n");
+  g_free (contents);
+  d = g_dir_open (conf_dir, 0, NULL);
+  while ((name = g_dir_read_name (d)) != NULL)
+    if (g_str_has_prefix (name, "sherpa-onnx.conf.before-delta-"))
+      backups++;
+  g_dir_close (d);
+  g_assert_cmpuint (backups, ==, 1);
+
+  g_unsetenv ("SPEECH_SETTINGS_SYSCONFDIR");
+  g_free (backup);
+  g_free (spath);
+  g_free (path);
+  g_free (conf_dir);
+  g_free (sys_modules);
+  g_free (sys);
+  cleanup_config_home (dir);
+}
+
+
+
 static void
 test_module_layered (void)
 {
@@ -390,8 +461,10 @@ test_module_layered (void)
   g_free (contents);
   backup = g_strconcat (path, ".before-delta", NULL);
   g_assert_true (g_file_test (backup, G_FILE_TEST_EXISTS));
-  /* nothing differs: the file goes, the system one is read */
-  g_assert_false (g_file_test (vpath, G_FILE_TEST_EXISTS));
+  /* a short file the user wrote is not a copy: left alone */
+  g_assert_true (g_file_get_contents (vpath, &contents, NULL, NULL));
+  g_assert_cmpstr (contents, ==, "VoskThreads 2\n");
+  g_free (contents);
   g_assert_false (speechd_modules_migrate ());
 
   /* reading sees both files */
@@ -438,10 +511,11 @@ test_module_layered (void)
   g_free (value);
   g_free (contents);
 
-  /* a voice of a new module starts a file of one line */
+  /* a voice goes on top of the user's own file, whose line stays */
   g_assert_true (speechd_module_set_voice ("vosk", "ru", NULL, "vosk-ru-female-2", NULL));
   g_assert_true (g_file_get_contents (vpath, &contents, NULL, NULL));
-  value = g_strconcat (header, "VoskVoice \"ru\" \"vosk-ru-female-2\"\n", NULL);
+  value = g_strconcat (header, "VoskThreads 2\n"
+                       "VoskVoice \"ru\" \"vosk-ru-female-2\"\n", NULL);
   g_assert_cmpstr (contents, ==, value);
   g_free (value);
   g_free (contents);
@@ -665,6 +739,7 @@ main (int    argc,
   g_test_add_func ("/config/detect-modules", test_detect_modules);
   g_test_add_func ("/config/module-option", test_module_option);
   g_test_add_func ("/config/module-layered", test_module_layered);
+  g_test_add_func ("/config/module-migrate-once", test_module_migrate_once);
   g_test_add_func ("/config/module-variant", test_module_variant);
   g_test_add_func ("/config/changed-on-disk", test_changed_on_disk);
   g_test_add_func ("/config/language-module", test_language_module);
