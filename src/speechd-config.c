@@ -39,6 +39,60 @@
  * program). The dialog therefore keeps its changes as a list of edits, and
  * speechd_config_save() applies them to the file as it is then, not to the
  * copy read at the start: lines written by others in between stay. */
+/* Write @contents to @path the way g_file_set_contents() does (a new file
+ * renamed over the old one, so a reader never sees half of it), but into
+ * the file a symbolic link points to, keeping the link (a configuration kept
+ * in a dotfiles repository) and the mode of the old file. */
+static gboolean
+write_file (const gchar  *path,
+            const gchar  *contents,
+            gssize        length,
+            GError      **error)
+{
+  gchar      *target = g_strdup (path);
+  GStatBuf    st;
+  int         mode = 0600;
+  guint       depth;
+  gboolean    ok;
+
+  /* follow the links one by one: realpath() fails on a link to a file not
+   * written yet */
+  for (depth = 0; depth < 40 && g_file_test (target, G_FILE_TEST_IS_SYMLINK); depth++)
+    {
+      gchar *link = g_file_read_link (target, error);
+      gchar *next;
+
+      if (link == NULL)
+        {
+          g_free (target);
+          return FALSE;
+        }
+      if (g_path_is_absolute (link))
+        next = g_strdup (link);
+      else
+        {
+          gchar *dir = g_path_get_dirname (target);
+
+          next = g_build_filename (dir, link, NULL);
+          g_free (dir);
+        }
+      g_free (link);
+      g_free (target);
+      target = next;
+    }
+
+  if (g_stat (target, &st) == 0)
+    mode = st.st_mode & 07777;
+
+  ok = g_file_set_contents_full (target, contents, length,
+                                 G_FILE_SET_CONTENTS_CONSISTENT, mode, error);
+  g_free (target);
+
+  return ok;
+}
+
+
+
 typedef enum
 {
   EDIT_SET,
@@ -618,7 +672,7 @@ speechd_config_save (SpeechdConfig *config,
       g_string_append_c (contents, '\n');
     }
 
-  ok = g_file_set_contents (config->path, contents->str, contents->len, error);
+  ok = write_file (config->path, contents->str, contents->len, error);
 
   if (ok)
     {
@@ -1037,8 +1091,8 @@ speechd_config_use_detected_modules (SpeechdConfig *config,
       if (!g_file_get_contents (g_ptr_array_index (data.copies, i),
                                 &contents, &length, error))
         goto out;
-      if (!g_file_set_contents (g_ptr_array_index (data.copies, i + 1),
-                                contents, length, error))
+      if (!write_file (g_ptr_array_index (data.copies, i + 1),
+                       contents, length, error))
         {
           g_free (contents);
           goto out;
@@ -1258,7 +1312,7 @@ module_config_write (const gchar *module,
       ok = FALSE;
     }
   else
-    ok = g_file_set_contents (path, contents->str, contents->len, error);
+    ok = write_file (path, contents->str, contents->len, error);
 
   g_free (dir);
   g_free (path);
