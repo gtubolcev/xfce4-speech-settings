@@ -213,8 +213,13 @@ typedef struct
    * speech_page_server_changed */
   dev_t          server_dev;
   ino_t          server_ino;
-  /* a module configuration was written, the server has to read it */
+  /* a change the server has to read at once (a module that does not read
+   * its file again itself, the audio output, the module list) */
   gboolean       reload_pending;
+  /* written, the server reads it when the dialog closes: restarting all
+   * modules for every slider step silenced the screen reader for seconds;
+   * the test sentence gets the settings over its own connection */
+  gboolean       server_stale;
   gboolean       updating;
 } SpeechPage;
 
@@ -238,15 +243,24 @@ speech_page_save (gpointer data)
   SpeechPage *page = data;
   GError     *error = NULL;
   gchar      *message;
+  gboolean    ok;
 
   page->save_id = 0;
 
   if (!speechd_config_is_dirty (page->config) && !page->reload_pending)
     return G_SOURCE_REMOVE;
-  page->reload_pending = FALSE;
 
-  if (!speechd_config_save (page->config, &error)
-      || !speechd_server_reload (&error))
+  ok = speechd_config_save (page->config, &error);
+  if (ok && page->reload_pending)
+    {
+      page->reload_pending = FALSE;
+      page->server_stale = FALSE;
+      ok = speechd_server_reload (&error);
+    }
+  else if (ok)
+    page->server_stale = TRUE;
+
+  if (!ok)
     {
       message = g_strdup_printf (_("Failed to apply the settings: %s"),
                                  error->message);
@@ -256,6 +270,26 @@ speech_page_save (gpointer data)
     }
 
   return G_SOURCE_REMOVE;
+}
+
+
+
+/* Saves what is pending and lets the server read what it has not yet; on
+ * closing */
+static void
+speech_page_apply (SpeechPage *page)
+{
+  if (page->save_id != 0)
+    {
+      g_source_remove (page->save_id);
+      page->save_id = 0;
+    }
+  speech_page_save (page);
+  if (page->server_stale)
+    {
+      page->server_stale = FALSE;
+      speechd_server_reload (NULL);
+    }
 }
 
 
@@ -1123,7 +1157,8 @@ speech_page_set_module_option (SpeechPage  *page,
     {
       if (speechd_module_set_option (module, key, value, &error))
         {
-          page->reload_pending = TRUE;
+          if (!speechd_module_reads_changes (module))
+            page->reload_pending = TRUE;
           speech_page_queue_save (page);
         }
       else
@@ -1606,7 +1641,8 @@ speech_page_voice_changed (GtkComboBox *combo,
     }
   else if (voice != NULL && module != NULL)
     {
-      page->reload_pending = TRUE;
+      if (!speechd_module_reads_changes (module))
+        page->reload_pending = TRUE;
       speech_page_queue_save (page);
       speech_page_sync_preload_full (page, TRUE);
       speech_page_sync_voices_button (page);
@@ -1805,6 +1841,9 @@ speech_page_choice_changed (GtkComboBox *combo,
     speechd_config_unset (page->config, key);
   else
     speechd_config_set (page->config, key, id);
+  /* the test sentence cannot choose the output over its connection */
+  if (g_strcmp0 (key, "AudioOutputMethod") == 0)
+    page->reload_pending = TRUE;
   speech_page_queue_save (page);
 }
 
@@ -2133,11 +2172,7 @@ speech_page_free (gpointer data)
     }
   g_free (page->typed_language);
 
-  if (page->save_id != 0)
-    {
-      g_source_remove (page->save_id);
-      speech_page_save (page);
-    }
+  speech_page_apply (page);
 
   if (page->refill_id != 0)
     g_source_remove (page->refill_id);
@@ -2166,11 +2201,8 @@ speech_page_flush (GtkWidget *widget)
 {
   SpeechPage *page = g_object_get_data (G_OBJECT (widget), "speech-page");
 
-  if (page != NULL && page->save_id != 0)
-    {
-      g_source_remove (page->save_id);
-      speech_page_save (page);
-    }
+  if (page != NULL)
+    speech_page_apply (page);
 }
 
 

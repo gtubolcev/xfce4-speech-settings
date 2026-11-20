@@ -1337,6 +1337,16 @@ static const gchar *const layered_modules[] = {
   "vosk", "kokoro", "teratts", "silero", NULL
 };
 
+/* Whether @module notices the changes of its file itself, without the server
+ * restarting it: our modules read the options the dialog writes (voices per
+ * language, Preload, IdleTimeout, AudioCopyDir) again when the file changes
+ * (speech-dispatcher-modules 0.1.0+git20261120) */
+gboolean
+speechd_module_reads_changes (const gchar *module)
+{
+  return module != NULL && g_strv_contains (layered_modules, module);
+}
+
 #define DELTA_HEADER_1 "# Changes to the system file of this synthesizer, which is read first"
 #define DELTA_HEADER_2 "# (xfce4-speech-settings writes only the options that differ from it)"
 

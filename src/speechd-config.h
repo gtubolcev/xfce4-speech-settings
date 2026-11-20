@@ -83,6 +83,7 @@ gboolean       speechd_module_set_voice  (const gchar   *module,
                                           GError       **error);
 
 const gchar   *speechd_module_base (const gchar *module);
+gboolean       speechd_module_reads_changes (const gchar *module);
 gchar         *speechd_module_option_key (const gchar *module,
                                           const gchar *suffix);
 gboolean       speechd_module_has_option (const gchar   *module,
