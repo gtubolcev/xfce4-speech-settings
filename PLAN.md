@@ -240,11 +240,10 @@ Three goals, in this order:
 - In the lists every voice says which engine it is for ("Piper", "Supertonic",
   …); today the Piper list opens for all sherpa-onnx synthesizers with only a
   note line above it.
-- Text normalization per language: one "Normalize the text" check box (numbers,
-  dates, abbreviations) shown for every language that has a normalizer; the
-  dialog asks the module which languages it covers instead of the hard-coded
-  "ru".  Stress and ё stay a Russian-only box.  German: show the box once a
-  German normalizer exists, until then none.
+- Text normalization (numbers, dates, abbreviations, stress, ё) is always on,
+  with no check box (user, 2026-11-20: nobody needs text without it outside
+  debugging; it can still be turned off in a module's configuration).  The
+  modules get normalizers for more languages where possible (German: none yet).
 
 ## Next
 
