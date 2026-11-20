@@ -2497,10 +2497,7 @@ speech_page_new (void)
   /* full copies of our modules' files, made by older versions, become the
    * options that differ from the system files; the modules reread them */
   if (speechd_modules_migrate ())
-    {
-      page->reload_pending = TRUE;
-      speech_page_queue_save (page);
-    }
+    speech_page_voices_changed (page);
 
   /* AddModule lines hide every module that is not listed */
   page->modules_bar = gtk_info_bar_new_with_buttons (
@@ -2562,6 +2559,20 @@ speech_page_new (void)
                     G_CALLBACK (speech_page_language_changed), page);
 
   page->voice_combo = gtk_combo_box_text_new ();
+  {
+    /* a list under the field: as a menu it puts the selected voice over
+     * the field, and a voice near the end of a long list leaves the rest
+     * of the menu empty */
+    GtkCssProvider *css = gtk_css_provider_new ();
+
+    gtk_css_provider_load_from_data (css,
+                                     "combobox { -GtkComboBox-appears-as-list: 1; }",
+                                     -1, NULL);
+    gtk_style_context_add_provider (gtk_widget_get_style_context (page->voice_combo),
+                                    GTK_STYLE_PROVIDER (css),
+                                    GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref (css);
+  }
   speech_page_grid_add (grid, 2, _("_Voice:"), page->voice_combo);
   g_signal_connect (page->voice_combo, "changed",
                     G_CALLBACK (speech_page_voice_changed), page);
