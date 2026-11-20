@@ -755,7 +755,10 @@ speech_page_fill_modules (SpeechPage *page)
 
       if (g_strv_contains (hidden_modules, module))
         continue;
-      if (first == NULL && speech_page_module_speaks (page, module, language))
+      /* sherpa-onnx, the module of the linux-tts-* packages, before the
+       * others, which are heavier or need their model installed by hand */
+      if ((first == NULL || g_strcmp0 (module, "sherpa-onnx") == 0)
+          && speech_page_module_speaks (page, module, language))
         first = module;
       if (g_strcmp0 (module, current) == 0)
         found = TRUE;
@@ -1752,6 +1755,31 @@ speech_page_is_language_code (const gchar *text)
 
 
 
+/* The language of the desktop as a speechd code ("ru", "de"), or NULL
+ * for C/POSIX */
+static gchar *
+speech_page_locale_language (void)
+{
+  const gchar * const *names = g_get_language_names ();
+  gchar               *code;
+  gsize                n;
+
+  if (names == NULL || names[0] == NULL)
+    return NULL;
+  /* the language alone: clients send "ru" more often than "ru-RU", and
+   * a LanguageDefaultModule line for "ru" is found for both */
+  n = strcspn (names[0], "_.@");
+  code = g_strndup (names[0], n);
+  if (g_strcmp0 (code, "C") == 0 || g_strcmp0 (code, "POSIX") == 0 || *code == '\0')
+    {
+      g_free (code);
+      return NULL;
+    }
+  return code;
+}
+
+
+
 /* Writes the typed language to the configuration. Only an empty entry or
  * a code like "ru" or "pt-BR" is written; mistyped text ("и") keeps the
  * saved language. */
@@ -2384,6 +2412,7 @@ speech_page_new (void)
   GError     *error = NULL;
   gchar      *value;
   gchar      *text;
+  gboolean    first_start;
 
   page = g_new0 (SpeechPage, 1);
   page->module_languages =
@@ -2477,7 +2506,21 @@ speech_page_new (void)
                                  "applications set the language themselves."));
   speech_page_grid_add (grid, 0, _("_Language:"), page->language_combo);
   speech_page_fill_languages (page);
+  /* First start (no speechd.conf of the user yet): speechd would read
+   * texts without a language in en-US with espeak-ng. Take the language of
+   * the desktop; the synthesizer for it is chosen below, and both are saved,
+   * so the computer speaks with a real voice before anything is touched. */
+  first_start = !g_file_test (speechd_config_get_path (page->config),
+                              G_FILE_TEST_EXISTS);
   value = speechd_config_get (page->config, "DefaultLanguage");
+  if (first_start && value == NULL)
+    {
+      value = speech_page_locale_language ();
+      if (value != NULL && !speech_page_is_language_code (value))
+        g_clear_pointer (&value, g_free);
+      if (value != NULL)
+        speechd_config_set (page->config, "DefaultLanguage", value);
+    }
   gtk_entry_set_text (GTK_ENTRY (entry), value != NULL ? value : "");
   g_free (value);
 
@@ -2490,6 +2533,29 @@ speech_page_new (void)
   speech_page_grid_add (grid, 1, _("_Synthesizer:"), page->module_combo);
   speech_page_fill_modules (page);
   speech_page_load_voices (page);
+  if (first_start)
+    {
+      const gchar *module = gtk_combo_box_get_active_id (GTK_COMBO_BOX (page->module_combo));
+
+      if (module != NULL && *module != '\0')
+        {
+          gchar *language = speech_page_get_language (page);
+
+          /* TRANSLATORS: first start of the dialog; %s are the synthesizer
+           * and the language code */
+          text = g_strdup_printf (_("Speech now uses the synthesizer %s for "
+                                    "the language %s. Other synthesizers and "
+                                    "voices can be chosen below. A synthesizer "
+                                    "loads its voice with the first sentence, "
+                                    "which can take a few seconds."),
+                                  module, language);
+          speech_page_show_message (page, GTK_MESSAGE_INFO, text);
+          g_free (text);
+          g_free (language);
+          if (speechd_config_is_dirty (page->config))
+            speech_page_queue_save (page);
+        }
+    }
   g_signal_connect (page->module_combo, "changed",
                     G_CALLBACK (speech_page_module_changed), page);
   g_signal_connect (page->language_combo, "changed",

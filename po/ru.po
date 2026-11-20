@@ -623,3 +623,15 @@ msgid ""
 msgstr ""
 "Голоса Piper для всех синтезаторов sherpa-onnx. Остальные их голоса "
 "(Supertonic, Kokoro, …) ставятся вместе с пакетами."
+
+#. TRANSLATORS: first start of the dialog; %s are the synthesizer
+#. and the language code
+#, c-format
+msgid ""
+"Speech now uses the synthesizer %s for the language %s. Other synthesizers "
+"and voices can be chosen below. A synthesizer loads its voice with the first "
+"sentence, which can take a few seconds."
+msgstr ""
+"Теперь речь идёт через синтезатор %s для языка %s. Другие синтезаторы и "
+"голоса можно выбрать ниже. Синтезатор загружает голос с первой фразой, это "
+"может занять несколько секунд."
