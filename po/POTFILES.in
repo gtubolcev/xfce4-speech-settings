@@ -2,6 +2,8 @@ data/speech-settings.desktop.in
 data/xfce4-speech-settings.desktop.in
 src/main.c
 src/speech-page.c
+src/speech-page-synth.c
+src/speech-page-voices.c
 src/voice-installer.c
 src/voice-source-piper.c
 src/voice-source-rhvoice.c
