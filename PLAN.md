@@ -342,6 +342,12 @@ Three goals, in this order:
 - README.
 
 ## Later
+- **Loading indication when switching modules and voices** (user, 2026-11-20). The
+  first Speak after a change of module or voice waits while the module starts and loads
+  the model (seconds for kokoro/sherpa, longer for big models); the user should see that
+  it is loading, not think the button failed. Ideas: a spinner or "Loading voice…" next
+  to Speak until the first audio or an error; a progress state from the module (a
+  custom event, or the time to the BEGIN event); known load times per model as a hint.
 - **Later list (user, 2026-11-16):**
   - check everything with Orca and other screen readers (speechd clients: Orca, Fenrir,
     speakup/espeakup, KDE's Qt TextToSpeech): voices, languages, module start, fallback;
