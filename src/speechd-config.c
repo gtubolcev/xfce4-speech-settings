@@ -1586,11 +1586,56 @@ module_delta_set (const gchar *module,
   return ok;
 }
 
+/* TRUE when @user is a full copy of the system file @sys, as older
+ * versions wrote it: most of its lines, comments included, are lines of the
+ * system file. A file the user wrote by hand ("only what differs", as the
+ * layered files are meant), or one with our header anywhere, is not. */
+static gboolean
+module_full_copy (gchar **user, gchar **sys)
+{
+  GHashTable *known;
+  guint       lines = 0, same = 0, i;
+
+  if (user == NULL || sys == NULL)
+    return FALSE;
+  known = g_hash_table_new (g_str_hash, g_str_equal);
+  for (i = 0; sys[i] != NULL; i++)
+    {
+      gchar *t = g_strstrip (g_strdup (sys[i]));
+
+      if (*t != '\0')
+        g_hash_table_add (known, (gpointer) sys[i]);
+      g_free (t);
+    }
+  for (i = 0; user[i] != NULL; i++)
+    {
+      const gchar *t = user[i];
+
+      while (g_ascii_isspace (*t))
+        t++;
+      if (strcmp (t, DELTA_HEADER_1) == 0)
+        {
+          g_hash_table_unref (known);
+          return FALSE;
+        }
+      if (*t == '\0')
+        continue;
+      lines++;
+      if (g_hash_table_contains (known, user[i]))
+        same++;
+    }
+  g_hash_table_unref (known);
+
+  /* the system files have dozens of comment lines; a copy keeps them */
+  return same >= 3 && same * 2 >= lines;
+}
+
 /* Turns the user's full copy of layered module @module (made before
- * 2026-11-20) into the options that differ from the system file, keeping
- * the old file as NAME.conf.before-delta. "<Module>Families" is dropped: the
- * dialog never sets it and the package adds families to it. TRUE when the
- * file changed (the server has to be reloaded). */
+ * 2026-11-20, see module_full_copy) into the options that differ from the
+ * system file, keeping the old file as NAME.conf.before-delta (with the
+ * date when that exists). "<Module>Families" is dropped: the dialog never
+ * sets it and the package adds families to it. A file that is not a full
+ * copy is left alone. TRUE when the file changed. */
 static gboolean
 module_migrate (const gchar *module)
 {
@@ -1604,12 +1649,13 @@ module_migrate (const gchar *module)
   if (!module_layered (module))
     return FALSE;
   user = module_config_read_copy (module, TRUE);
-  if (user == NULL || (user[0] != NULL && strcmp (user[0], DELTA_HEADER_1) == 0))
+  sys = module_config_read_copy (module, FALSE);
+  if (!module_full_copy (user, sys))
     {
       g_strfreev (user);
+      g_strfreev (sys);
       return FALSE;
     }
-  sys = module_config_read_copy (module, FALSE);
 
   /* the last line of each identity counts, as for the module */
   last = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
@@ -1646,6 +1692,16 @@ module_migrate (const gchar *module)
 
   path = module_config_path (module, TRUE);
   backup = g_strconcat (path, ".before-delta", NULL);
+  if (g_file_test (backup, G_FILE_TEST_EXISTS))
+    {
+      GDateTime *now = g_date_time_new_now_local ();
+      gchar     *stamp = g_date_time_format (now, "%Y%m%d-%H%M%S");
+
+      g_free (backup);
+      backup = g_strconcat (path, ".before-delta-", stamp, NULL);
+      g_free (stamp);
+      g_date_time_unref (now);
+    }
   ok = g_file_get_contents (path, &contents, NULL, NULL)
        && (g_file_test (backup, G_FILE_TEST_EXISTS)
            || g_file_set_contents (backup, contents, -1, NULL))

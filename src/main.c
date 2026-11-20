@@ -89,6 +89,61 @@ plug_embed_timeout (gpointer data)
 
 
 
+/* One dialog at a time: two would show each other stale values, and the
+ * one closed first reloads the server under the other and unloads the
+ * voices only the other uses. The first one owns APP_ID on the session
+ * bus; a second start asks it to show itself and leaves. */
+#define APP_ID "org.xfce.SpeechSettings"
+
+static GtkWidget *the_dialog = NULL;   /* NULL when embedded */
+
+static void
+app_activate (GApplication *app,
+              gpointer      data)
+{
+  GtkWidget *msg;
+
+  if (the_dialog != NULL)
+    {
+      gtk_window_present (GTK_WINDOW (the_dialog));
+      return;
+    }
+  /* embedded: a plug cannot raise the settings manager's window */
+  msg = gtk_message_dialog_new (NULL, 0, GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE,
+                                _("The speech settings are already open in "
+                                  "the Settings Manager."));
+  gtk_window_set_title (GTK_WINDOW (msg), _("Speech"));
+  gtk_window_set_icon_name (GTK_WINDOW (msg), PACKAGE);
+  g_signal_connect (msg, "response", G_CALLBACK (gtk_widget_destroy), NULL);
+  gtk_widget_show (msg);
+}
+
+/* TRUE when another dialog runs; it was asked to show itself. Without a
+ * session bus each start is on its own, as before. */
+static gboolean
+another_instance (GApplication **app_out)
+{
+  GApplication *app = g_application_new (APP_ID, (GApplicationFlags) 0);
+  GError       *error = NULL;
+
+  *app_out = app;
+  g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);
+  if (!g_application_register (app, NULL, &error))
+    {
+      g_printerr ("xfce4-speech-settings: %s\n", error->message);
+      g_error_free (error);
+      return FALSE;
+    }
+  if (!g_application_get_is_remote (app))
+    return FALSE;
+  g_application_activate (app);
+  if (g_application_get_dbus_connection (app) != NULL)
+    g_dbus_connection_flush_sync (g_application_get_dbus_connection (app), NULL, NULL);
+  return TRUE;
+}
+
+
+
 /* logout or kill: save and let go of the voices as on Close */
 static gboolean
 quit_on_signal (gpointer data)
@@ -123,10 +178,12 @@ gint
 main (gint    argc,
       gchar **argv)
 {
-  GtkWidget *page;
-  GtkWidget *dialog;
-  GtkWidget *button;
-  GError    *error = NULL;
+  GtkWidget    *page;
+  GtkWidget    *dialog;
+  GtkWidget    *button;
+  GError       *error = NULL;
+  GApplication *app;
+  gboolean      other;
 
 #ifdef HAVE_XFCE
   xfce_textdomain (GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR, "UTF-8");
@@ -162,6 +219,37 @@ main (gint    argc,
       return EXIT_SUCCESS;
     }
 
+  other = another_instance (&app);
+
+#ifdef HAVE_GTK_X11
+  if (other && opt_socket_id != 0 && GDK_IS_X11_DISPLAY (gdk_display_get_default ()))
+    {
+      /* the settings manager waits for a plug: give it one that says why */
+      GtkWidget *plug = gtk_plug_new (opt_socket_id);
+      GtkWidget *label = gtk_label_new (_("The speech settings are already "
+                                          "open in another window."));
+
+      gtk_label_set_line_wrap (GTK_LABEL (label), TRUE);
+      g_object_set (label, "margin", 24, NULL);
+      g_signal_connect (plug, "delete-event", G_CALLBACK (gtk_main_quit), NULL);
+      g_signal_connect (plug, "notify::embedded", G_CALLBACK (plug_embedded_changed), NULL);
+      g_signal_connect (plug, "destroy", G_CALLBACK (gtk_main_quit), NULL);
+      g_timeout_add_seconds (PLUG_EMBED_TIMEOUT, plug_embed_timeout, plug);
+      gtk_container_add (GTK_CONTAINER (plug), label);
+      gtk_widget_show_all (plug);
+      gdk_notify_startup_complete ();
+      gtk_main ();
+      g_object_unref (app);
+      return EXIT_SUCCESS;
+    }
+#endif
+  if (other)
+    {
+      gdk_notify_startup_complete ();
+      g_object_unref (app);
+      return EXIT_SUCCESS;
+    }
+
   page = speech_page_new ();
   g_unix_signal_add (SIGTERM, quit_on_signal, NULL);
   g_unix_signal_add (SIGINT, quit_on_signal, NULL);
@@ -194,6 +282,7 @@ main (gint    argc,
 
       speech_page_flush (page);
       g_object_unref (page);
+      g_object_unref (app);
       return EXIT_SUCCESS;
     }
 #endif
@@ -223,6 +312,7 @@ main (gint    argc,
   speech_page_add_close (page, button);
 
   g_signal_connect (dialog, "response", G_CALLBACK (dialog_response), page);
+  the_dialog = dialog;
   gtk_widget_show_all (dialog);
 
 #ifdef HAVE_GTK_X11
@@ -234,6 +324,7 @@ main (gint    argc,
 
   /* also after a signal, which bypasses the response */
   speech_page_flush (page);
+  g_object_unref (app);
 
   return EXIT_SUCCESS;
 }
