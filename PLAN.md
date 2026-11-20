@@ -233,6 +233,19 @@ Three goals, in this order:
     for every later synthesizer the "Close" button sits partly below the window edge. Either
     resize to the natural height on every switch, or keep a fixed row for the button.
 
+## Voices and text options per language (user, 2026-11-20)
+- A voice installer for every module, not only Piper: Supertonic models for
+  sherpa-onnx(-vulkan-rs), Kokoro, Silero, Vosk, … — own voices of any module
+  can be added from the dialog.
+- In the lists every voice says which engine it is for ("Piper", "Supertonic",
+  …); today the Piper list opens for all sherpa-onnx synthesizers with only a
+  note line above it.
+- Text normalization per language: one "Normalize the text" check box (numbers,
+  dates, abbreviations) shown for every language that has a normalizer; the
+  dialog asks the module which languages it covers instead of the hard-coded
+  "ru".  Stress and ё stay a Russian-only box.  German: show the box once a
+  German normalizer exists, until then none.
+
 ## Next
 
 - **Explicit "other languages" synthesizer** (user, 2026-11-18: "DefaultModule где я могу

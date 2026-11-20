@@ -13,6 +13,6 @@ executable(
   'voice-source-rhvoice.c',
   'voice-unzip.c',
   include_directories: include_directories('..'),
-  dependencies: [gtk, gtk_x11, speechd, soup, json_glib] + xfce_deps,
+  dependencies: [gtk, gtk_x11, x11, speechd, soup, json_glib] + xfce_deps,
   install: true,
 )

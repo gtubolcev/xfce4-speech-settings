@@ -38,6 +38,8 @@
 #else
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
+#endif
+#ifdef HAVE_GTK_X11
 #include <gtk/gtkx.h>
 #include <gdk/gdkx.h>
 #endif
@@ -1157,6 +1159,7 @@ static void
 voice_installer_set_parent (GtkWindow *dialog,
                             GtkWindow *parent)
 {
+#ifdef HAVE_GTK_X11
   GdkWindow  *socket, *top;
   GdkDisplay *display;
   Display    *xdisplay;
@@ -1196,6 +1199,7 @@ voice_installer_set_parent (GtkWindow *dialog,
   gdk_window_set_transient_for (gtk_widget_get_window (GTK_WIDGET (dialog)), top);
   g_object_unref (top);
   gtk_window_set_position (dialog, GTK_WIN_POS_CENTER_ON_PARENT);
+#endif
 }
 
 void
