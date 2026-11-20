@@ -845,7 +845,8 @@ failed:
 
 
 /* @url into the file @path, at most @max bytes, the bar going from @base to
- * @base + @span; @done gets the MD5 sum of what came */
+ * @base + @span; @done gets the MD5 sum of what came (to find a damaged
+ * download; the sums come from the same site, so not a changed one) */
 void
 installer_download (Installer             *in,
                     const gchar           *url,
