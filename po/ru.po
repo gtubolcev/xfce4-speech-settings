@@ -615,3 +615,11 @@ msgstr ""
 #: src/speech-page.c
 msgid "_Browse…"
 msgstr "_Обзор…"
+
+#: src/voice-source-piper.c
+msgid ""
+"Piper voices for all sherpa-onnx synthesizers. Their other voices "
+"(Supertonic, Kokoro, …) come with the packages."
+msgstr ""
+"Голоса Piper для всех синтезаторов sherpa-onnx. Остальные их голоса "
+"(Supertonic, Kokoro, …) ставятся вместе с пакетами."

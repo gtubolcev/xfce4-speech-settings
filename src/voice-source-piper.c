@@ -797,6 +797,9 @@ const VoiceSource voice_source_piper =
   .install_tooltip = N_("Download the voice from the Piper voice collection "
                         "and install it for you"),
   .quality_title   = N_("Quality"),
+  .note            = N_("Piper voices for all sherpa-onnx synthesizers. Their "
+                        "other voices (Supertonic, Kokoro, …) come with "
+                        "the packages."),
   .catalogue_url   = "https://huggingface.co/rhasspy/piper-voices/resolve/main/voices.json",
   .cache_name      = "piper-voices.json",
   .new_data        = piper_new_data,
