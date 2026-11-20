@@ -53,6 +53,7 @@ struct _VoiceSource
   const gchar  *title;
   const gchar  *install_tooltip;
   const gchar  *quality_title;    /* NULL: no such column */
+  const gchar  *note;             /* NULL: none; a line above the list */
   gboolean      no_size;          /* the catalogue gives no sizes */
   const gchar  *catalogue_url;
   const gchar  *cache_name;       /* in ~/.cache/PACKAGE */

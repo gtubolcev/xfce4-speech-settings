@@ -38,6 +38,8 @@
 #else
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
+#include <gtk/gtkx.h>
+#include <gdk/gdkx.h>
 #endif
 
 #include "voice-installer-private.h"
@@ -1147,6 +1149,55 @@ installer_add_column (GtkTreeView *view,
 
 
 
+/* In the settings manager the page sits in a GtkPlug, which the window
+ * manager does not know as a window: the dialog would be a window of its
+ * own and could end up under the manager.  Make it transient for the
+ * top-level window that holds the socket. */
+static void
+voice_installer_set_parent (GtkWindow *dialog,
+                            GtkWindow *parent)
+{
+  GdkWindow  *socket, *top;
+  GdkDisplay *display;
+  Display    *xdisplay;
+  Window      xid, root, up, *children;
+  guint       n;
+
+  if (!GTK_IS_PLUG (parent))
+    return;
+  socket = gtk_plug_get_socket_window (GTK_PLUG (parent));
+  display = gtk_widget_get_display (GTK_WIDGET (dialog));
+  if (socket == NULL || !GDK_IS_X11_DISPLAY (display))
+    return;
+  xdisplay = GDK_DISPLAY_XDISPLAY (display);
+  xid = GDK_WINDOW_XID (socket);
+  gdk_x11_display_error_trap_push (display);
+  for (;;)
+    {
+      if (!XQueryTree (xdisplay, xid, &root, &up, &children, &n))
+        {
+          xid = None;
+          break;
+        }
+      if (children != NULL)
+        XFree (children);
+      if (up == root || up == None)
+        break;
+      xid = up;
+    }
+  gdk_x11_display_error_trap_pop_ignored (display);
+  if (xid == None)
+    return;
+
+  top = gdk_x11_window_foreign_new_for_display (display, xid);
+  if (top == NULL)
+    return;
+  gtk_widget_realize (GTK_WIDGET (dialog));
+  gdk_window_set_transient_for (gtk_widget_get_window (GTK_WIDGET (dialog)), top);
+  g_object_unref (top);
+  gtk_window_set_position (dialog, GTK_WIN_POS_CENTER_ON_PARENT);
+}
+
 void
 voice_installer_show (GtkWindow             *parent,
                       const gchar           *module,
@@ -1186,6 +1237,7 @@ voice_installer_show (GtkWindow             *parent,
                                                           RESPONSE_REMOVE);
   gtk_widget_set_tooltip_text (in->install_button, _(source->install_tooltip));
   gtk_window_set_default_size (GTK_WINDOW (in->dialog), 640, 480);
+  voice_installer_set_parent (GTK_WINDOW (in->dialog), parent);
 
   content = gtk_dialog_get_content_area (GTK_DIALOG (in->dialog));
   gtk_container_set_border_width (GTK_CONTAINER (content), 12);
@@ -1198,6 +1250,13 @@ voice_installer_show (GtkWindow             *parent,
   gtk_box_pack_start (GTK_BOX (box), label, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (box), in->language_combo, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (content), box, FALSE, FALSE, 0);
+  if (source->note != NULL)
+    {
+      label = gtk_label_new (_(source->note));
+      gtk_label_set_line_wrap (GTK_LABEL (label), TRUE);
+      gtk_label_set_xalign (GTK_LABEL (label), 0.0);
+      gtk_box_pack_start (GTK_BOX (content), label, FALSE, FALSE, 0);
+    }
 
   in->store = gtk_list_store_new (N_COLS, G_TYPE_POINTER, G_TYPE_STRING, G_TYPE_STRING,
                                   G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,

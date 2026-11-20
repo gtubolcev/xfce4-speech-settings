@@ -1402,6 +1402,15 @@ speech_page_sync_text_option (SpeechPage       *page,
     supported = speechd_module_has_option (module, option->key);
   if (supported)
     {
+      /* both work on Russian text only */
+      gchar *language = speech_page_get_language (page);
+
+      supported = language != NULL && g_ascii_strncasecmp (language, "ru", 2) == 0
+                  && (language[2] == '\0' || language[2] == '-' || language[2] == '_');
+      g_free (language);
+    }
+  if (supported)
+    {
       gchar *value = speechd_module_get_option (module, option->key);
 
       on = speech_page_text_option_on (option, value);
