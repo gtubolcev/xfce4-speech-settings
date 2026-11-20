@@ -10,7 +10,11 @@
 /* Tests for the speechd.conf editor. They run in temporary XDG
  * directories, never on the real configuration. */
 
+#include <string.h>
+#include <unistd.h>
+
 #include <gio/gio.h>
+#include <glib/gstdio.h>
 
 #include "src/speechd-config.h"
 
@@ -604,6 +608,51 @@ test_language_module (void)
 
 
 
+/* A configuration that is a symbolic link (dotfiles) stays one */
+static void
+test_symlink (void)
+{
+  gchar         *dir = setup_config_home ();
+  gchar         *conf_dir, *path, *real_dir, *real, *contents, *link;
+  SpeechdConfig *config;
+  GStatBuf       st;
+
+  conf_dir = g_build_filename (dir, "speech-dispatcher", NULL);
+  path = g_build_filename (conf_dir, "speechd.conf", NULL);
+  real_dir = g_build_filename (dir, "dotfiles", NULL);
+  real = g_build_filename (real_dir, "speechd.conf", NULL);
+  g_mkdir_with_parents (conf_dir, 0700);
+  g_mkdir_with_parents (real_dir, 0700);
+  g_assert_true (g_file_set_contents (real, sample, -1, NULL));
+  g_assert_cmpint (g_chmod (real, 0640), ==, 0);
+  /* relative, as a dotfiles tool makes it */
+  g_assert_cmpint (symlink ("../dotfiles/speechd.conf", path), ==, 0);
+
+  config = speechd_config_load (NULL);
+  g_assert_nonnull (config);
+  speechd_config_set_int (config, "DefaultRate", -20);
+  g_assert_true (speechd_config_save (config, NULL));
+  speechd_config_free (config);
+
+  g_assert_true (g_file_test (path, G_FILE_TEST_IS_SYMLINK));
+  link = g_file_read_link (path, NULL);
+  g_assert_cmpstr (link, ==, "../dotfiles/speechd.conf");
+  g_assert_true (g_file_get_contents (real, &contents, NULL, NULL));
+  g_assert_nonnull (strstr (contents, "DefaultRate -20"));
+  g_assert_cmpint (g_stat (real, &st), ==, 0);
+  g_assert_cmpint (st.st_mode & 0777, ==, 0640);
+
+  g_free (contents);
+  g_free (link);
+  g_free (real);
+  g_free (real_dir);
+  g_free (path);
+  g_free (conf_dir);
+  cleanup_config_home (dir);
+}
+
+
+
 int
 main (int    argc,
       char **argv)
@@ -619,6 +668,7 @@ main (int    argc,
   g_test_add_func ("/config/module-variant", test_module_variant);
   g_test_add_func ("/config/changed-on-disk", test_changed_on_disk);
   g_test_add_func ("/config/language-module", test_language_module);
+  g_test_add_func ("/config/symlink", test_symlink);
 
   return g_test_run ();
 }
