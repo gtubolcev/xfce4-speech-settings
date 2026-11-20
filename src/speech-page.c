@@ -194,8 +194,6 @@ typedef struct
   GtkWidget     *punctuation_combo;
   GtkWidget     *capital_combo;
   GtkWidget     *audio_combo;
-  GtkWidget     *normalize_check;   /* TextNormalization of the synthesizer */
-  GtkWidget     *stress_check;      /* TextStress of the synthesizer */
   GtkWidget     *copy_check;        /* AudioCopyDir of the synthesizer */
   GtkWidget     *copy_box;          /* the directory, shown when on */
   GtkWidget     *copy_entry;
@@ -1361,74 +1359,6 @@ speech_page_sync_preload (SpeechPage *page)
 
 
 
-/* The text stages of our modules, set per synthesizer in its configuration:
- * "TextNormalization" (numbers, dates, abbreviations as words; on unless
- * "no") and "TextStress" (stress marks from a dictionary; off unless
- * "yes"). A check box shows only for a synthesizer whose configuration
- * names the option, active or commented out. */
-typedef struct
-{
-  const gchar *key;
-  gboolean     default_on;
-} TextOption;
-
-static const TextOption text_normalization = { "TextNormalization", TRUE };
-static const TextOption text_stress = { "TextStress", FALSE };
-
-static gboolean
-speech_page_text_option_on (const TextOption *option,
-                            const gchar      *value)
-{
-  if (value == NULL || *value == '\0')
-    return option->default_on;
-  return g_ascii_strcasecmp (value, "yes") == 0 || g_ascii_strcasecmp (value, "1") == 0
-         || g_ascii_strcasecmp (value, "true") == 0 || g_ascii_strcasecmp (value, "on") == 0;
-}
-
-static void
-speech_page_sync_text_option (SpeechPage       *page,
-                              GtkWidget        *check,
-                              const TextOption *option)
-{
-  gchar   *module;
-  gboolean supported = FALSE;
-  gboolean on = option->default_on;
-  gboolean updating = page->updating;
-
-  if (check == NULL)
-    return;
-  module = speech_page_get_module (page);
-  if (module != NULL && *module != '\0')
-    supported = speechd_module_has_option (module, option->key);
-  if (supported)
-    {
-      /* both work on Russian text only */
-      gchar *language = speech_page_get_language (page);
-
-      supported = language != NULL && g_ascii_strncasecmp (language, "ru", 2) == 0
-                  && (language[2] == '\0' || language[2] == '-' || language[2] == '_');
-      g_free (language);
-    }
-  if (supported)
-    {
-      gchar *value = speechd_module_get_option (module, option->key);
-
-      on = speech_page_text_option_on (option, value);
-      g_free (value);
-    }
-
-  page->updating = TRUE;
-  gtk_widget_set_visible (check, supported);
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (check), on);
-  page->updating = updating;
-  g_free (module);
-}
-
-/* "AudioCopyDir" of our modules: a copy of what they speak, outputN.wav
- * and outputN.txt in a directory; no line means no copy */
-#define COPY_KEY "AudioCopyDir"
-#define COPY_DEFAULT_DIR "~/speech-copy"
-
 static void
 speech_page_sync_copy (SpeechPage *page)
 {
@@ -1460,8 +1390,6 @@ speech_page_sync_copy (SpeechPage *page)
 static void
 speech_page_sync_text_options (SpeechPage *page)
 {
-  speech_page_sync_text_option (page, page->normalize_check, &text_normalization);
-  speech_page_sync_text_option (page, page->stress_check, &text_stress);
   speech_page_sync_copy (page);
 }
 
@@ -1594,44 +1522,6 @@ speech_page_copy_browse (GtkButton  *button,
     }
   g_object_unref (chooser);
 }
-
-static void
-speech_page_text_option_toggled (GtkToggleButton  *button,
-                                 SpeechPage       *page,
-                                 const TextOption *option)
-{
-  gchar   *module;
-  gboolean on;
-
-  if (page->updating)
-    return;
-  module = speech_page_get_module (page);
-  if (module != NULL && *module != '\0')
-    {
-      on = gtk_toggle_button_get_active (button);
-      /* the default is no line at all: a later default follows the package */
-      speech_page_set_module_option (page, module, option->key,
-                                     on == option->default_on ? NULL
-                                     : on ? "yes" : "no");
-    }
-  g_free (module);
-}
-
-static void
-speech_page_normalize_toggled (GtkToggleButton *button,
-                               SpeechPage      *page)
-{
-  speech_page_text_option_toggled (button, page, &text_normalization);
-}
-
-static void
-speech_page_stress_toggled (GtkToggleButton *button,
-                            SpeechPage      *page)
-{
-  speech_page_text_option_toggled (button, page, &text_stress);
-}
-
-
 
 static void
 speech_page_preload_toggled (GtkToggleButton *button,
@@ -2661,33 +2551,8 @@ speech_page_new (void)
   speech_page_bind_choice (page, page->audio_combo, "AudioOutputMethod",
                            audio_methods, G_N_ELEMENTS (audio_methods), "");
 
-  /* the text stages of the selected synthesizer */
-  page->normalize_check =
-    gtk_check_button_new_with_mnemonic (_("Read _numbers, dates and abbreviations as words"));
-  gtk_widget_set_tooltip_text (page->normalize_check,
-                               _("The selected synthesizer writes out numbers, "
-                                 "dates, units and abbreviations in full before "
-                                 "reading (Russian for now). Without it the "
-                                 "voice reads the text as it is."));
-  gtk_widget_set_no_show_all (page->normalize_check, TRUE);
-  gtk_grid_attach (GTK_GRID (grid), page->normalize_check, 1, 3, 1, 1);
-  g_signal_connect (page->normalize_check, "toggled",
-                    G_CALLBACK (speech_page_normalize_toggled), page);
-
-  page->stress_check =
-    gtk_check_button_new_with_mnemonic (_("Take stress and ё from a _dictionary"));
-  gtk_widget_set_tooltip_text (page->stress_check,
-                               _("Before reading, Russian text gets the stress "
-                                 "and the letter ё of a pronunciation dictionary, "
-                                 "as far as the voice can use them (Piper voices "
-                                 "get only ё). Words with two possible stresses "
-                                 "(зАмок, замОк) are not resolved yet: the "
-                                 "dictionary picks one."));
-  gtk_widget_set_no_show_all (page->stress_check, TRUE);
-  gtk_grid_attach (GTK_GRID (grid), page->stress_check, 1, 4, 1, 1);
-  g_signal_connect (page->stress_check, "toggled",
-                    G_CALLBACK (speech_page_stress_toggled), page);
-
+  /* text normalization (numbers, stress, ...) is always on: the modules
+   * do it unless their configuration says "no", for debugging */
   page->copy_check =
     gtk_check_button_new_with_mnemonic (_("Save a cop_y of the speech to files"));
   gtk_widget_set_tooltip_text (page->copy_check,
