@@ -20,9 +20,11 @@
 #include "config.h"
 #endif
 
+#include <signal.h>
 #include <stdlib.h>
 
 #include <gtk/gtk.h>
+#include <glib-unix.h>
 #ifdef HAVE_XFCE
 #include <libxfce4ui/libxfce4ui.h>
 #include <libxfce4util/libxfce4util.h>
@@ -84,6 +86,16 @@ plug_embed_timeout (gpointer data)
   return G_SOURCE_REMOVE;
 }
 #endif
+
+
+
+/* logout or kill: save and let go of the voices as on Close */
+static gboolean
+quit_on_signal (gpointer data)
+{
+  gtk_main_quit ();
+  return G_SOURCE_CONTINUE;
+}
 
 
 
@@ -151,6 +163,9 @@ main (gint    argc,
     }
 
   page = speech_page_new ();
+  g_unix_signal_add (SIGTERM, quit_on_signal, NULL);
+  g_unix_signal_add (SIGINT, quit_on_signal, NULL);
+  g_unix_signal_add (SIGHUP, quit_on_signal, NULL);
 
 #ifdef HAVE_GTK_X11
   if (opt_socket_id != 0 && GDK_IS_X11_DISPLAY (gdk_display_get_default ()))
@@ -216,6 +231,9 @@ main (gint    argc,
 #endif
 
   gtk_main ();
+
+  /* also after a signal, which bypasses the response */
+  speech_page_flush (page);
 
   return EXIT_SUCCESS;
 }
