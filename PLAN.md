@@ -22,8 +22,9 @@
   "Voice type" row appears instead. The test speaks with the chosen voice.
 
 ## Work order (user, 2026-11-20) — current
-1. Model probe in a child process (architecture review §1.9а), so that a broken model does
-   not crash the module.
+1. ~~Model probe in a child process (architecture review §1.9а), so that a broken model does
+   not crash the module.~~ Done 2026-11-20 (tts-module `model_path` hook, ProbeTimeout,
+   cache in ~/.cache/linux-tts/probe-<module>.ini; sherpa, vosk, kokoro, teratts).
 2. Bugs: speechd SEGV on SIGHUP; the de locale shows English messages and the German
    translation of the dialog; Firefox extension (block selection in iframes, table reading
    order, native host log).
@@ -159,7 +160,7 @@ Three goals, in this order:
      a model load per message, sox for rate/pitch, no volume, a downloaded binary).
      Voices: a few per language as packages within the PPA quota, the rest through
      a downloader in the settings app (Pied's other job). NC voices: downloader only.
-     The built modules become GPL-3 through libespeak-ng (sources stay MIT).
+     linux-tts is GPL-3.0-or-later since 2026-11-20 (user); it was MIT before.
    - RHVoice voices from multiverse (uk, ky, tt, uz, pl, cs, sk, mk, sq, eo, pt-br):
      check that the GUI shows them.
    - Silero v3 / v4_cyrillic (kk, ky, uz, tt, ba, udm, xal, …; en 118 speakers, de,
