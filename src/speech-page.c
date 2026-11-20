@@ -2102,14 +2102,17 @@ speech_page_test_clicked (GtkButton  *button,
   if (!speech_page_connect (page))
     return;
 
-  module = gtk_combo_box_get_active_id (GTK_COMBO_BOX (page->module_combo));
-  if (module != NULL && *module != '\0')
-    spd_set_output_module (page->connection, module);
-
+  /* the language first: speechd's SET LANGUAGE switches the connection to
+   * the LanguageDefaultModule it read at its last start, which would
+   * override the module chosen here */
   entry = gtk_bin_get_child (GTK_BIN (page->language_combo));
   language = gtk_entry_get_text (GTK_ENTRY (entry));
   spd_set_language (page->connection,
                     *language != '\0' ? language : DEFAULT_LANGUAGE);
+
+  module = gtk_combo_box_get_active_id (GTK_COMBO_BOX (page->module_combo));
+  if (module != NULL && *module != '\0')
+    spd_set_output_module (page->connection, module);
 
   i = speech_page_choice_index (page->voice_type_combo, voice_types,
                                 G_N_ELEMENTS (voice_types));
