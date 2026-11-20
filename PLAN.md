@@ -247,6 +247,15 @@ Three goals, in this order:
 
 ## Next
 
+- **Language and regional variant** (user, 2026-11-20, not urgent). The Language row now has
+  one wide combo with the two-letter code. Split it into two combos: the language (`ru`) and
+  its variant (`ru` for all, `ru-RU`, `ru-BY`, `ru-UA`, …). speechd matches the exact code
+  first and then the part before '-', so a `ru` line covers every variant and a `ru-UA` line
+  overrides it for that region only. The variant list should come from what voices and
+  clients actually use, not from every locale. Open questions: whether DefaultLanguage takes
+  the variant, and how the dialog shows that a variant has no lines of its own and falls back
+  to `ru`.
+
 - **Explicit "other languages" synthesizer** (user, 2026-11-18: "DefaultModule где я могу
   поменять? В gui"). Today DefaultModule is set implicitly: the Language field is
   DefaultLanguage, and the synthesizer chosen while it shows that language goes to both
