@@ -237,12 +237,12 @@ msgstr "_Держать синтезатор загруженным"
 #: src/speech-page.c:2071
 msgid ""
 "Load the synthesizer when the speech server starts and keep it in memory: "
-"the first message is spoken sooner. Otherwise it is loaded with the first "
-"message and freed after five minutes without speech."
+"the first message is spoken sooner. Otherwise it is loaded when chosen here "
+"or with the first message, and freed after five minutes without speech."
 msgstr ""
 "Загружать синтезатор при запуске речевого сервера и держать его в памяти: "
-"первое сообщение прозвучит быстрее. Иначе он загружается с первым сообщением "
-"и выгружается после пяти минут без речи."
+"первое сообщение прозвучит быстрее. Иначе он загружается, когда его выбирают "
+"здесь или с первым сообщением, и выгружается после пяти минут без речи."
 
 #: src/speech-page.c:2082
 msgid "_Voices…"
@@ -628,10 +628,17 @@ msgstr ""
 #. and the language code
 #, c-format
 msgid ""
-"Speech now uses the synthesizer %s for the language %s. Other synthesizers "
-"and voices can be chosen below. A synthesizer loads its voice with the first "
-"sentence, which can take a few seconds."
+"Speech now uses the synthesizer %s for the language %s. Its voice is kept "
+"loaded, so speech starts at once. Other synthesizers and voices can be "
+"chosen below."
 msgstr ""
-"Теперь речь идёт через синтезатор %s для языка %s. Другие синтезаторы и "
-"голоса можно выбрать ниже. Синтезатор загружает голос с первой фразой, это "
-"может занять несколько секунд."
+"Теперь речь идёт через синтезатор %s для языка %s. Его голос держится "
+"загруженным, поэтому речь начинается сразу. Другие синтезаторы и голоса "
+"можно выбрать ниже."
+
+msgid "Loading the voice…"
+msgstr "Голос загружается…"
+
+#, c-format
+msgid "The voice could not be loaded: %s"
+msgstr "Не удалось загрузить голос: %s"

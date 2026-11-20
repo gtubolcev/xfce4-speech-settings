@@ -29,6 +29,7 @@
 #include <libxfce4util/libxfce4util.h>
 #else
 #include <glib/gi18n.h>
+#include <unistd.h>
 #include <gtk/gtk.h>
 #endif
 #include <speech-dispatcher/libspeechd.h>
@@ -179,6 +180,13 @@ typedef struct
   GtkWidget     *voice_type_combo;
   GtkWidget     *preload_check;
   GtkWidget     *voices_button;
+  /* "Loading the voice…" or why it failed, next to preload_check */
+  GtkWidget     *load_box;
+  GtkWidget     *load_spinner;
+  GtkWidget     *load_label;
+  GFileMonitor  *load_monitor;
+  /* the modules asked to load a voice, to let go when the dialog closes */
+  GHashTable    *load_requested;
   /* the user wants the default synthesizer kept in memory */
   /* the module whose configuration has our Preload line, or NULL */
   /* the voices of the selected module, NULL-terminated, or NULL */
@@ -1336,6 +1344,160 @@ speech_page_unpark (const gchar *module)
   g_key_file_free (parked);
 }
 
+/* Load requests. The synthesizers of linux-tts load a voice when the user
+ * chooses it here, not with the first sentence: the dialog writes the voice
+ * to $XDG_RUNTIME_DIR/linux-tts/<module>.load. The module tells what it does
+ * in <module>.state ("loading", "ready", "failed <why>", "idle"), shown next
+ * to the check box. When the dialog closes, the synthesizers no language
+ * uses any more get their file removed and free their models at once. */
+
+static gchar *
+speech_page_runtime_path (const gchar *module,
+                          const gchar *suffix)
+{
+  gchar *name = g_strconcat (module, suffix, NULL);
+  gchar *path = g_build_filename (g_get_user_runtime_dir (), "linux-tts",
+                                  name, NULL);
+
+  g_free (name);
+  return path;
+}
+
+static void
+speech_page_show_load_state (SpeechPage *page)
+{
+  gchar   *module = speech_page_get_module (page);
+  gchar   *state = NULL;
+  gboolean loading = FALSE;
+  gchar   *text = NULL;
+
+  if (page->load_box == NULL)
+    {
+      g_free (module);
+      return;
+    }
+
+  if (module != NULL && speechd_module_reads_changes (module))
+    {
+      gchar *path = speech_page_runtime_path (module, ".state");
+
+      if (g_file_get_contents (path, &state, NULL, NULL))
+        {
+          g_strstrip (state);
+          if (g_str_has_prefix (state, "loading"))
+            {
+              loading = TRUE;
+              text = g_strdup (_("Loading the voice…"));
+            }
+          else if (g_str_has_prefix (state, "failed"))
+            text = g_strdup_printf (_("The voice could not be loaded: %s"),
+                                    g_strstrip (state + strlen ("failed")));
+        }
+      g_free (path);
+    }
+
+  if (text != NULL)
+    {
+      gtk_label_set_text (GTK_LABEL (page->load_label), text);
+      gtk_widget_set_visible (page->load_spinner, loading);
+      if (loading)
+        gtk_spinner_start (GTK_SPINNER (page->load_spinner));
+      else
+        gtk_spinner_stop (GTK_SPINNER (page->load_spinner));
+      gtk_widget_show (page->load_label);
+      gtk_widget_show (page->load_box);
+    }
+  else
+    {
+      gtk_spinner_stop (GTK_SPINNER (page->load_spinner));
+      gtk_widget_hide (page->load_box);
+    }
+
+  g_free (text);
+  g_free (state);
+  g_free (module);
+}
+
+static void
+speech_page_load_state_changed (GFileMonitor     *monitor,
+                                GFile            *file,
+                                GFile            *other,
+                                GFileMonitorEvent event,
+                                SpeechPage       *page)
+{
+  speech_page_show_load_state (page);
+}
+
+static void
+speech_page_watch_load_state (SpeechPage *page)
+{
+  gchar *dir = g_build_filename (g_get_user_runtime_dir (), "linux-tts", NULL);
+
+  if (g_mkdir_with_parents (dir, 0700) == 0)
+    {
+      GFile *file = g_file_new_for_path (dir);
+
+      page->load_monitor = g_file_monitor_directory (file, G_FILE_MONITOR_NONE,
+                                                     NULL, NULL);
+      if (page->load_monitor != NULL)
+        g_signal_connect (page->load_monitor, "changed",
+                          G_CALLBACK (speech_page_load_state_changed), page);
+      g_object_unref (file);
+    }
+  g_free (dir);
+}
+
+/* the user chose the synthesizer or its voice: load it now */
+static void
+speech_page_request_load (SpeechPage *page)
+{
+  gchar *module = speech_page_get_module (page);
+
+  if (module != NULL && speechd_module_reads_changes (module))
+    {
+      gchar *value = speech_page_preload_value (page, module);
+      gchar *path = speech_page_runtime_path (module, ".load");
+      gchar *dir = g_path_get_dirname (path);
+
+      if (value != NULL && g_mkdir_with_parents (dir, 0700) == 0)
+        {
+          gchar *text = g_strconcat (value, "\n", NULL);
+
+          /* a new file each time: the module sees it even if the voice is
+           * the same as last time */
+          if (g_file_set_contents (path, text, -1, NULL))
+            g_hash_table_add (page->load_requested, g_strdup (module));
+          g_free (text);
+        }
+      g_free (dir);
+      g_free (path);
+      g_free (value);
+    }
+  g_free (module);
+  speech_page_show_load_state (page);
+}
+
+/* the dialog closes: the synthesizers no language uses free their models */
+static void
+speech_page_release_loads (SpeechPage *page)
+{
+  GPtrArray     *used = speechd_config_used_modules (page->config);
+  GHashTableIter iter;
+  gpointer       module;
+
+  g_hash_table_iter_init (&iter, page->load_requested);
+  while (g_hash_table_iter_next (&iter, &module, NULL))
+    if (!speech_page_array_has (used, module))
+      {
+        gchar *path = speech_page_runtime_path (module, ".load");
+
+        unlink (path);
+        g_free (path);
+      }
+  g_ptr_array_unref (used);
+  g_hash_table_remove_all (page->load_requested);
+}
+
 static void speech_page_sync_text_options (SpeechPage *page);
 
 /* Shows the selected synthesizer's state in the check box; with
@@ -1649,6 +1811,7 @@ speech_page_voice_changed (GtkComboBox *combo,
       speech_page_queue_save (page);
       speech_page_sync_preload_full (page, TRUE);
       speech_page_sync_voices_button (page);
+      speech_page_request_load (page);
     }
 
   g_free (type);
@@ -1675,6 +1838,7 @@ speech_page_module_changed (GtkComboBox *combo,
   speech_page_retry_if_empty (page);
   speech_page_sync_preload (page);
   speech_page_sync_voices_button (page);
+  speech_page_request_load (page);
 }
 
 
@@ -1824,6 +1988,7 @@ speech_page_apply_language (gpointer data)
   speech_page_retry_if_empty (page);
   speech_page_sync_preload (page);
   speech_page_sync_voices_button (page);
+  speech_page_request_load (page);
 
   g_free (language);
 
@@ -2215,6 +2380,14 @@ speech_page_free (gpointer data)
   if (page->connection != NULL)
     spd_close (page->connection);
 
+  speech_page_release_loads (page);
+  g_hash_table_destroy (page->load_requested);
+  if (page->load_monitor != NULL)
+    {
+      g_signal_handlers_disconnect_by_data (page->load_monitor, page);
+      g_object_unref (page->load_monitor);
+    }
+
   if (page->voices != NULL)
     free_spd_voices (page->voices);
   g_strfreev (page->modules);
@@ -2233,7 +2406,10 @@ speech_page_flush (GtkWidget *widget)
   SpeechPage *page = g_object_get_data (G_OBJECT (widget), "speech-page");
 
   if (page != NULL)
-    speech_page_apply (page);
+    {
+      speech_page_apply (page);
+      speech_page_release_loads (page);
+    }
 }
 
 
@@ -2418,6 +2594,8 @@ speech_page_new (void)
   page->module_languages =
     g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
                            (GDestroyNotify) g_ptr_array_unref);
+  page->load_requested = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                                g_free, NULL);
   page->languages = g_ptr_array_new_with_free_func (g_free);
 
   if (label_size_group == NULL)
@@ -2544,10 +2722,10 @@ speech_page_new (void)
           /* TRANSLATORS: first start of the dialog; %s are the synthesizer
            * and the language code */
           text = g_strdup_printf (_("Speech now uses the synthesizer %s for "
-                                    "the language %s. Other synthesizers and "
-                                    "voices can be chosen below. A synthesizer "
-                                    "loads its voice with the first sentence, "
-                                    "which can take a few seconds."),
+                                    "the language %s. Its voice is kept "
+                                    "loaded, so speech starts at once. Other "
+                                    "synthesizers and voices can be chosen "
+                                    "below."),
                                   module, language);
           speech_page_show_message (page, GTK_MESSAGE_INFO, text);
           g_free (text);
@@ -2600,15 +2778,55 @@ speech_page_new (void)
                                _("Load the synthesizer when the speech "
                                  "server starts and keep it in memory: the "
                                  "first message is spoken sooner. Otherwise "
-                                 "it is loaded with the first message and "
-                                 "freed after five minutes without speech."));
+                                 "it is loaded when chosen here or with the "
+                                 "first message, and freed after five "
+                                 "minutes without speech."));
   gtk_widget_set_no_show_all (page->preload_check, TRUE);
-  gtk_grid_attach (GTK_GRID (grid), page->preload_check, 1, 4, 1, 1);
+  /* the state below the check box, which may be hidden */
+  hbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+  gtk_box_pack_start (GTK_BOX (hbox), page->preload_check, FALSE, FALSE, 0);
+  page->load_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  page->load_spinner = gtk_spinner_new ();
+  page->load_label = gtk_label_new (NULL);
+  gtk_label_set_line_wrap (GTK_LABEL (page->load_label), TRUE);
+  gtk_label_set_max_width_chars (GTK_LABEL (page->load_label), 40);
+  gtk_label_set_xalign (GTK_LABEL (page->load_label), 0.0);
+  gtk_box_pack_start (GTK_BOX (page->load_box), page->load_spinner, FALSE, FALSE, 0);
+  gtk_box_pack_start (GTK_BOX (page->load_box), page->load_label, TRUE, TRUE, 0);
+  gtk_widget_set_no_show_all (page->load_box, TRUE);
+  gtk_box_pack_start (GTK_BOX (hbox), page->load_box, FALSE, FALSE, 0);
+  gtk_grid_attach (GTK_GRID (grid), hbox, 1, 4, 1, 1);
+  /* First start: the synthesizer chosen for the desktop's language is kept
+   * loaded (the check box on); every other one is off until the user turns
+   * it on, for one used often next to the main one */
+  if (first_start)
+    {
+      gchar *module = speech_page_get_module (page);
+      gchar *key = module != NULL ? speech_page_module_key (module, "Preload") : NULL;
+
+      if (key != NULL && speechd_module_has_option (module, key))
+        {
+          gchar *idle_key = speech_page_module_key (module, "IdleTimeout");
+          gchar *wanted = speech_page_preload_value (page, module);
+
+          if (wanted != NULL)
+            {
+              speech_page_set_module_option (page, module, key, wanted);
+              speech_page_set_module_option (page, module, idle_key, "0");
+            }
+          g_free (wanted);
+          g_free (idle_key);
+        }
+      g_free (key);
+      g_free (module);
+    }
   /* a synthesizer left unused by an older version or by hand */
   speech_page_park_preloads (page);
   speech_page_sync_preload (page);
   g_signal_connect (page->preload_check, "toggled",
                     G_CALLBACK (speech_page_preload_toggled), page);
+  speech_page_watch_load_state (page);
+  speech_page_show_load_state (page);
 
   page->voices_button = gtk_button_new_with_mnemonic (_("_Voices…"));
   gtk_widget_set_tooltip_text (page->voices_button,
