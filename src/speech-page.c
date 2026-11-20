@@ -1357,7 +1357,10 @@ speech_page_sync_preload (SpeechPage *page)
   speech_page_sync_preload_full (page, FALSE);
 }
 
-
+/* "AudioCopyDir" of our modules: a copy of what they speak, outputN.wav
+ * and outputN.txt in a directory; no line means no copy */
+#define COPY_KEY "AudioCopyDir"
+#define COPY_DEFAULT_DIR "~/speech-copy"
 
 static void
 speech_page_sync_copy (SpeechPage *page)
