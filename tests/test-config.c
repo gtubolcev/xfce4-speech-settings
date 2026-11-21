@@ -546,6 +546,22 @@ test_module_variant (void)
   g_assert_cmpstr (speechd_module_base ("kokoro-vulkan-rs"), ==, "kokoro");
   g_assert_true (speechd_module_reads_changes ("kokoro-vulkan-rs"));
   g_assert_cmpstr (speechd_module_base ("espeak-ng"), ==, "espeak-ng");
+  {
+    gchar *v;
+
+    v = speechd_module_gpu_variant ("kokoro");
+    g_assert_cmpstr (v, ==, "kokoro-vulkan-rs");
+    g_free (v);
+    g_assert_null (speechd_module_gpu_variant ("kokoro-vulkan-rs"));
+    g_assert_null (speechd_module_gpu_variant (NULL));
+    g_assert_null (speechd_module_gpu_variant (""));
+    v = speechd_module_cpu_variant ("sherpa-onnx-vulkan-rs");
+    g_assert_cmpstr (v, ==, "sherpa-onnx");
+    g_free (v);
+    g_assert_null (speechd_module_cpu_variant ("sherpa-onnx"));
+    g_assert_null (speechd_module_cpu_variant ("-vulkan-rs"));
+    g_assert_null (speechd_module_cpu_variant (NULL));
+  }
   g_assert_null (speechd_module_base (NULL));
   key = speechd_module_option_key ("sherpa-onnx-vulkan-rs", "Preload");
   g_assert_cmpstr (key, ==, "SherpaPreload");
