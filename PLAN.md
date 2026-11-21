@@ -37,6 +37,30 @@
    Later, only as plans: the same survey along other lists (former USSR countries, peoples of
    the former USSR, countries by GDP and GDP per capita, number of speakers) to choose the
    next steps.
+5. **Licence audit** (user, 2026-11-21): a separate, thorough check of licences and of
+   everything tied to them, ending in a written policy for each piece of code and data.
+   - Inventory of every piece in both repos and in the PPA packages: own code, ports and
+     translations of other projects (misaki en.py, kokoro-ru ru_g2p.py, vosk_tts, teratts.py,
+     phonemizer, spaCy tokenizer/tagger logic in en-tagger.c, num2words, ru-normalizr,
+     supertonic-android rules, textnorm sources), vendored libraries (onnxruntime,
+     sherpa-onnx, piper, speechd module library, patched speechd/rhvoice), data (espeak-ng
+     ru rules, misaki dictionaries, en_core_web_sm weights and spacy-lookups-data, stress
+     dictionaries, test corpora), models and voices (kokoro, vosk, teratts, piper voices,
+     downloader manifest), GUI translations and icons.
+   - Per piece: origin (URL, commit/version), licence (SPDX), copyright holders, whether it
+     is copied, ported, derived or only consulted; licence compatibility with the
+     project licence (linux-tts GPL-3+, xfce4-speech-settings GPL-2+ — check that GPL-2+
+     code does not take GPL-3-only/Apache-2.0 pieces), attribution and NOTICE duties
+     (Apache-2.0 NOTICE files, MIT notices), the training-data question for weights
+     (e.g. en_core_web_sm on OntoNotes, misaki dictionaries of undocumented origin, issues
+     107/113), patents/trademarks in names.
+   - Output: `LICENSING.md` in each repo (the policy table: piece → licence → how we use it →
+     what we must ship), complete `debian/copyright` for every source package, SPDX headers
+     in every source file, licence files installed next to models, a checklist for adding
+     a new dependency/model/voice, and a rule for what may go into the PPA (free only),
+     into the downloader with a licence prompt (NC etc.), or nowhere.
+   - Also: the MIT → GPL-3+ relicensing of linux-tts on 2026-11-20 (history, contributors),
+     the upstream MRs (their licences), and the `tts-direction` licence notes.
 
 ## Stages (user, 2026-11-16) — overrides the order below
 **Stage 1 — a decent working TTS for speech-dispatcher, soon.** What works now is enough;
