@@ -540,9 +540,12 @@ Three goals, in this order:
   decision:
   1. The ONNX modules stay as they are (sd_sherpa-onnx, sd_piper-sherpa-onnx, Kokoro,
      TeraTTS, Vosk): they work on the CPU and give hundreds of voices for free.
-  2. The onnx-vulkan-rs path above is frozen: the sherpa-onnx-vulkan-rs /
-     piper-sherpa-onnx-vulkan-rs names stay as built, no further work on the plugin
-     (one author, own ORT 1.29, no Supertonic/Pocket). The GPU path goes through ggml.
+  2. onnx-vulkan-rs: frozen 2026-11-15, **resumed 2026-11-19** (user, 2026-11-21: "вполне
+     себе доводим его до ума" — the way to free the CPU of weak machines until the ggml
+     stage). Own ORT 1.32 (onnxruntime-tts), onnxruntime-ep-vulkan and
+     speech-dispatcher-sherpa-onnx-vulkan-rs are in the PPA; fork branch pad-modes
+     (266bb79, Supertonic on Vulkan) not pushed yet; Kokoro on Vulkan to measure.
+     The long-term GPU path is still ggml.
      **Checked 2026-11-16** (`onnx-vulkan inspect`, supertonic-3 int8): text_encoder and
      vector_estimator fully supported; only PRelu (duration_predictor, vocoder) and an
      inference-mode BatchNormalization (vocoder) are missing — trivial ops, or rewrite the 3
