@@ -228,8 +228,14 @@ speech_page_unpark (const gchar *module)
  * chooses it here, not with the first sentence: the dialog writes the voice
  * to $XDG_RUNTIME_DIR/linux-tts/<module>.load. The module tells what it does
  * in <module>.state ("loading", "ready", "failed <why>", "idle"), shown next
- * to the check box. When the dialog closes, the synthesizers no language
- * uses any more get their file removed and free their models at once. */
+ * to the check box. A synthesizer the user switches away from, and that no
+ * language uses any more, gets its file removed after RELEASE_DELAY_S, and
+ * the module frees its models (it looks at the file every 2 s); the same for
+ * all of them when the dialog closes. Switching back within the delay keeps
+ * the model; switching back later loads it again, and a module that is still
+ * loading drops the model when the load ends. */
+
+#define RELEASE_DELAY_S 2
 
 static gchar *
 speech_page_runtime_path (const gchar *module,
@@ -355,6 +361,54 @@ speech_page_request_load (SpeechPage *page)
     }
   g_free (module);
   speech_page_show_load_state (page);
+  speech_page_schedule_release (page);
+}
+
+/* removes the load requests of the synthesizers no language uses; they
+ * free their models */
+static void
+speech_page_release_unused (SpeechPage *page)
+{
+  GPtrArray     *used = speechd_config_used_modules (page->config);
+  gchar         *current = speech_page_get_module (page);
+  GHashTableIter iter;
+  gpointer       module;
+
+  g_hash_table_iter_init (&iter, page->load_requested);
+  while (g_hash_table_iter_next (&iter, &module, NULL))
+    if (!speech_page_array_has (used, module)
+        && g_strcmp0 (module, current) != 0)
+      {
+        gchar *path = speech_page_runtime_path (module, ".load");
+
+        unlink (path);
+        g_free (path);
+        g_hash_table_iter_remove (&iter);
+      }
+  g_free (current);
+  g_ptr_array_unref (used);
+}
+
+static gboolean
+speech_page_release_timeout (gpointer data)
+{
+  SpeechPage *page = data;
+
+  page->release_id = 0;
+  speech_page_release_unused (page);
+  return G_SOURCE_REMOVE;
+}
+
+/* a synthesizer or voice was chosen: in a moment, free the ones switched
+ * away from; every choice starts the delay again, so clicking back and
+ * forth releases nothing until the user settles */
+void
+speech_page_schedule_release (SpeechPage *page)
+{
+  if (page->release_id != 0)
+    g_source_remove (page->release_id);
+  page->release_id = g_timeout_add_seconds (RELEASE_DELAY_S,
+                                            speech_page_release_timeout, page);
 }
 
 /* the dialog closes: the synthesizers no language uses free their models */
@@ -365,6 +419,11 @@ speech_page_release_loads (SpeechPage *page)
   GHashTableIter iter;
   gpointer       module;
 
+  if (page->release_id != 0)
+    {
+      g_source_remove (page->release_id);
+      page->release_id = 0;
+    }
   g_hash_table_iter_init (&iter, page->load_requested);
   while (g_hash_table_iter_next (&iter, &module, NULL))
     if (!speech_page_array_has (used, module))

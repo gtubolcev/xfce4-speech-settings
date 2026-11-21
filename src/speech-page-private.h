@@ -100,6 +100,7 @@ typedef struct
   guint          refill_tries;  /* refills in a row that found no voices */
   guint          watch_id;
   guint          fit_id;        /* fits test_view's height to its text */
+  guint          release_id;    /* frees the synthesizers switched away from */
   /* the server the module list came from (its socket), see
    * speech_page_server_changed */
   dev_t          server_dev;
@@ -163,6 +164,7 @@ void speech_page_show_load_state (SpeechPage *page);
 void speech_page_watch_load_state (SpeechPage *page);
 void speech_page_request_load (SpeechPage *page);
 void speech_page_release_loads (SpeechPage *page);
+void speech_page_schedule_release (SpeechPage *page);
 void speech_page_sync_preload_full (SpeechPage *page,
                                     gboolean    follow_voice);
 void speech_page_sync_preload (SpeechPage *page);
