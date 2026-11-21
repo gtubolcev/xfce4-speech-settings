@@ -543,8 +543,17 @@ Three goals, in this order:
   2. onnx-vulkan-rs: frozen 2026-11-15, **resumed 2026-11-19** (user, 2026-11-21: "вполне
      себе доводим его до ума" — the way to free the CPU of weak machines until the ggml
      stage). Own ORT 1.32 (onnxruntime-tts), onnxruntime-ep-vulkan and
-     speech-dispatcher-sherpa-onnx-vulkan-rs are in the PPA; fork branch pad-modes
-     (266bb79, Supertonic on Vulkan) not pushed yet; Kokoro on Vulkan to measure.
+     speech-dispatcher-sherpa-onnx-vulkan-rs are in the PPA; Supertonic runs there (pad-modes,
+     upstream PR 5). **Kokoro on Vulkan (2026-11-21):** fixes upstream as PRs 6/7, patched in
+     onnxruntime-ep-vulkan -2; synthesizer kokoro-vulkan-rs (speech-dispatcher-modules
+     347d4bf). GTX 1060: RTF ~0.1 vs ~0.3, CPU time ÷10. Vega 8: CPU time ÷10, mid-length
+     phrases RTF 0.42 vs 0.70.
+     - **TODO: long phrases are slower on the Vega 8** — the longest test phrase (13 s of
+       audio) takes 12.2 s on Vulkan against 9 s on the CPU (bench:
+       /home/grigory/Storage/Claude/kokoro-vk/bench.sh). Profile per op (shared iGPU
+       memory? a kernel that scales badly with the sequence length?); the first run with a
+       cold Mesa shader cache is also much slower.
+     - TODO: the same bench on the HD 620 (192.168.178.121).
      The long-term GPU path is still ggml.
      **Checked 2026-11-16** (`onnx-vulkan inspect`, supertonic-3 int8): text_encoder and
      vector_estimator fully supported; only PRelu (duration_predictor, vocoder) and an
