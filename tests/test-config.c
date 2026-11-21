@@ -543,6 +543,8 @@ test_module_variant (void)
   g_assert_cmpstr (speechd_module_base ("sherpa-onnx-vulkan-rs"), ==, "sherpa");
   g_assert_cmpstr (speechd_module_base ("piper-sherpa-onnx"), ==, "piper");
   g_assert_cmpstr (speechd_module_base ("piper-sherpa-onnx-vulkan-rs"), ==, "piper");
+  g_assert_cmpstr (speechd_module_base ("kokoro-vulkan-rs"), ==, "kokoro");
+  g_assert_true (speechd_module_reads_changes ("kokoro-vulkan-rs"));
   g_assert_cmpstr (speechd_module_base ("espeak-ng"), ==, "espeak-ng");
   g_assert_null (speechd_module_base (NULL));
   key = speechd_module_option_key ("sherpa-onnx-vulkan-rs", "Preload");
