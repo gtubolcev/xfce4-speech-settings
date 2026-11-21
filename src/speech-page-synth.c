@@ -427,6 +427,7 @@ speech_page_sync_preload_full (SpeechPage *page,
   g_free (key);
   g_free (module);
 
+  speech_page_sync_gpu (page);
   speech_page_sync_text_options (page);
 }
 

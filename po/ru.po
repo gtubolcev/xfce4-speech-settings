@@ -642,3 +642,17 @@ msgstr "Голос загружается…"
 #, c-format
 msgid "The voice could not be loaded: %s"
 msgstr "Не удалось загрузить голос: %s"
+
+#: src/speech-page.c:1423
+msgid "Use the _graphics card (Vulkan)"
+msgstr "Использовать видеок_арту (Vulkan)"
+
+#: src/speech-page.c:1425
+msgid ""
+"Run the synthesizer on the graphics card: it takes little processor time, "
+"and on most cards it speaks faster. The first start after an update of the "
+"graphics driver takes longer."
+msgstr ""
+"Синтезатор работает на видеокарте: почти не занимает процессор и на "
+"большинстве карт говорит быстрее. Первый запуск после обновления "
+"видеодрайвера дольше."

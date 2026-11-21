@@ -62,6 +62,8 @@ typedef struct
   GtkWidget     *voice_type_label;
   GtkWidget     *voice_type_combo;
   GtkWidget     *preload_check;
+  /* runs the synthesizer's "-vulkan-rs" variant, which the menu hides */
+  GtkWidget     *gpu_check;
   GtkWidget     *voices_button;
   /* "Loading the voice…" or why it failed, next to preload_check */
   GtkWidget     *load_box;
@@ -139,6 +141,9 @@ SPDVoice *speech_page_find_voice (SpeechPage  *page,
                                   const gchar *name,
                                   const gchar *language);
 void speech_page_update_voices (SpeechPage *page);
+gchar *speech_page_gpu_twin (SpeechPage  *page,
+                             const gchar *module);
+void speech_page_sync_gpu (SpeechPage *page);
 gboolean speech_page_is_language_code (const gchar *text);
 gchar *speech_page_locale_language (void);
 gboolean speech_page_refill_modules (gpointer data);

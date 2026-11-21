@@ -1370,6 +1370,33 @@ speechd_module_base (const gchar *module)
   return module;
 }
 
+/* Our modules that run on the graphics card are installed a second time
+ * under the name with this suffix ("kokoro-vulkan-rs" next to "kokoro") */
+#define GPU_SUFFIX "-vulkan-rs"
+
+/* The name of the graphics card variant of @module ("kokoro-vulkan-rs" for
+ * "kokoro"), whether installed or not; NULL for NULL or a variant itself */
+gchar *
+speechd_module_gpu_variant (const gchar *module)
+{
+  if (module == NULL || *module == '\0' || g_str_has_suffix (module, GPU_SUFFIX))
+    return NULL;
+
+  return g_strconcat (module, GPU_SUFFIX, NULL);
+}
+
+/* The module of which @module is the graphics card variant ("kokoro" for
+ * "kokoro-vulkan-rs"); NULL for the others */
+gchar *
+speechd_module_cpu_variant (const gchar *module)
+{
+  if (module == NULL || !g_str_has_suffix (module, GPU_SUFFIX)
+      || strlen (module) == strlen (GPU_SUFFIX))
+    return NULL;
+
+  return g_strndup (module, strlen (module) - strlen (GPU_SUFFIX));
+}
+
 /* "<Module><suffix>", the name of an option of @module: "SherpaVoice" for
  * "sherpa-onnx" and "sherpa-onnx-vulkan-rs" */
 gchar *

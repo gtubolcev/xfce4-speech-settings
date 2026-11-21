@@ -259,28 +259,49 @@ speech_page_fill_modules (SpeechPage *page)
   for (i = 0; page->modules != NULL && page->modules[i] != NULL; i++)
     {
       const gchar *module = page->modules[i];
+      gchar       *cpu = speechd_module_cpu_variant (module);
+      gchar       *gpu;
+      const gchar *name = module;
 
       if (g_strv_contains (hidden_modules, module))
-        continue;
+        {
+          g_free (cpu);
+          continue;
+        }
+      /* a graphics card variant is no entry of its own: the check box under
+       * its synthesizer picks it, and the entry of that one stands for it */
+      if (cpu != NULL && g_strv_contains ((const gchar *const *) page->modules, cpu))
+        {
+          g_free (cpu);
+          continue;
+        }
+      g_free (cpu);
+      gpu = speech_page_gpu_twin (page, module);
+      if (gpu != NULL && g_strcmp0 (gpu, current) == 0)
+        module = gpu;
       /* sherpa-onnx, the module of the linux-tts-* packages, before the
        * others, which are heavier or need their model installed by hand */
-      if ((first == NULL || g_strcmp0 (module, "sherpa-onnx") == 0)
+      if ((first == NULL || g_strcmp0 (name, "sherpa-onnx") == 0)
           && speech_page_module_speaks (page, module, language))
         first = module;
       if (g_strcmp0 (module, current) == 0)
         found = TRUE;
       else if (!speech_page_module_speaks (page, module, language))
-        continue;
+        {
+          g_free (gpu);
+          continue;
+        }
 
       if (speech_page_module_speaks (page, module, language))
-        gtk_combo_box_text_append (combo, module, module);
+        gtk_combo_box_text_append (combo, module, name);
       else
         {
           /* TRANSLATORS: a synthesizer without a voice for the language */
-          label = g_strdup_printf (_("%s (no voice)"), module);
+          label = g_strdup_printf (_("%s (no voice)"), name);
           gtk_combo_box_text_append (combo, module, label);
           g_free (label);
         }
+      g_free (gpu);
     }
 
   /* keep a configured module that is not loaded at the moment */
@@ -480,6 +501,79 @@ speech_page_resolve_voice (SPDVoice   **voices,
   g_ptr_array_free (candidates, TRUE);
 
   return found;
+}
+
+
+
+/* The graphics card variant of @module when the server has it, else NULL */
+gchar *
+speech_page_gpu_twin (SpeechPage  *page,
+                      const gchar *module)
+{
+  gchar *gpu = speechd_module_gpu_variant (module);
+
+  if (gpu != NULL && page->modules != NULL
+      && g_strv_contains ((const gchar *const *) page->modules, gpu))
+    return gpu;
+
+  g_free (gpu);
+  return NULL;
+}
+
+/* Whether the computer has a graphics card a Vulkan driver may run on: a
+ * render node, or the device of the NVIDIA driver. Asking Vulkan itself
+ * would load every driver into the dialog; a card without Vulkan makes the
+ * variant fail to load, which the dialog shows. */
+static gboolean
+speech_page_has_gpu (void)
+{
+  static gint  cached = -1;
+  GDir        *dir;
+  const gchar *name;
+
+  if (cached >= 0)
+    return cached;
+  cached = g_file_test ("/dev/nvidia0", G_FILE_TEST_EXISTS);
+  dir = g_dir_open ("/dev/dri", 0, NULL);
+  while (!cached && dir != NULL && (name = g_dir_read_name (dir)) != NULL)
+    cached = g_str_has_prefix (name, "renderD");
+  if (dir != NULL)
+    g_dir_close (dir);
+  if (g_getenv ("SPEECH_SETTINGS_FAKE_GPU") != NULL)
+    cached = TRUE;
+
+  return cached;
+}
+
+/* Shows the check box "Use the graphics card" when the selected synthesizer
+ * has a variant for it with a voice for the language, on while it is used */
+void
+speech_page_sync_gpu (SpeechPage *page)
+{
+  gchar   *module, *cpu, *gpu, *language;
+  gboolean visible = FALSE, on = FALSE, updating = page->updating;
+
+  if (page->gpu_check == NULL)
+    return;
+  module = speech_page_get_module (page);
+  cpu = speechd_module_cpu_variant (module);
+  language = speech_page_get_language (page);
+  if (cpu != NULL && g_strv_contains ((const gchar *const *) page->modules, cpu))
+    visible = on = TRUE;
+  else if (speech_page_has_gpu ()
+           && (gpu = speech_page_gpu_twin (page, module)) != NULL)
+    {
+      visible = speech_page_module_speaks (page, gpu, language);
+      g_free (gpu);
+    }
+
+  page->updating = TRUE;
+  gtk_widget_set_visible (page->gpu_check, visible);
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (page->gpu_check), on);
+  page->updating = updating;
+  g_free (language);
+  g_free (cpu);
+  g_free (module);
 }
 
 
