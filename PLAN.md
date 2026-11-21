@@ -215,6 +215,26 @@ Three goals, in this order:
      (consent!) — references could be our own synthetic voices. Only safetensors: export
      to ONNX with sherpa-onnx's Pocket export script (in docker), then sd_sherpa's Pocket
      family runs it with a Russian tokenizer.
+   - **Looked at 2026-11-21** (user's links: github 9208499-ship-it/teratts-android, 4pda
+     200728 #145375095, the 1110815 header). Worth taking, all to check before use:
+     - teratts-android (GPL-3.0, Kotlin; TeraTTSv2 + Shtorm Pocket TTS on Android):
+       `assets/homosolver/` = silero-stress v1.5 homograph resolver converted to ONNX
+       (encoder 38 MB + head 0.6 MB, BERT vocab, `[HOMO]…[/HOMO]` marks, window 300;
+       silero-stress is MIT) → runs in C on our ORT as the homograph stage after the
+       dictionary stress; compare with RUAccent (HANDOFF). `assets/en_ru.txt` (1.3 MB):
+       English word → Russian spelling with "+" stress, for Latin words in Russian text
+       (origin/licence unknown, ask the author). Kotlin references: RussianNumberNormalizer,
+       RussianCaps, ChurchSlavonic, CurrencyNormalizer, EnglishTranscriber, reading by
+       roles (DialogueAnalyzer2/RoleModel/NameGender: a voice per book character). Stress
+       dictionaries 962 K / 615 K words (RUAccent MIT + Zaliznyak) in its releases.
+       TeraTTS int8 build: 3.5x faster than real time on a phone → try int8 for sd_teratts.
+     - 1110815 header: PocketTTS-GUI-Rust (github zelenukhin, Pocket TTS on onnxruntime
+       without Python, int8 models) — reference for the Pocket/Shtorm runner; Demagog-RS
+       (github neverbusher; replacement/stress dictionaries engine); ru-normalizr 1.3.0
+       (2026-10-31, reworked numbers/dates/units) — check which version textnorm ported;
+       StUser's stress_marker on aot (Zaliznyak morphology) fixes neural stress outside
+       homographs — the same idea as our vosk dictionary check; Silero 5.6 / RuVoice voices
+       are non-commercial (not for the PPA).
    - **Light voices for uk / be, survey 2026-11-14** (user: "украинский и белорусский
      интересны"). Details in linux-tts/RESEARCH-tts-engines.md ("Ukrainian, Belarusian and
      other languages"). Steps: (1) Ukrainian — Piper uk_UA voices and Coqui uk-mai via
