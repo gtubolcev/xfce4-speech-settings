@@ -223,13 +223,9 @@ msgstr ""
 "первое сообщение прозвучит быстрее. Иначе он загружается, когда его выбирают "
 "здесь или с первым сообщением, и выгружается после пяти минут без речи."
 
-#: src/speech-page.c:1491
-msgid "Processor"
-msgstr "Процессор"
-
 #: src/speech-page.c:1493
-msgid "Graphics card (Vulkan)"
-msgstr "Видеокарта (Vulkan)"
+msgid "Use the _graphics card (Vulkan)"
+msgstr "Использовать _видеокарту (Vulkan)"
 
 #: src/speech-page.c:1495
 msgid ""
@@ -240,10 +236,6 @@ msgstr ""
 "На видеокарте синтезатор почти не занимает процессор и на большинстве "
 "карт говорит быстрее. Первый запуск после обновления видеодрайвера "
 "дольше."
-
-#: src/speech-page.c:1500
-msgid "_Device:"
-msgstr "_Устройство:"
 
 #: src/speech-page.c:1552
 msgid "_Voices…"

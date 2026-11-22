@@ -203,12 +203,8 @@ msgid ""
 "or with the first message, and freed after five minutes without speech."
 msgstr ""
 
-#: src/speech-page.c:1491
-msgid "Processor"
-msgstr ""
-
 #: src/speech-page.c:1493
-msgid "Graphics card (Vulkan)"
+msgid "Use the _graphics card (Vulkan)"
 msgstr ""
 
 #: src/speech-page.c:1495
@@ -216,10 +212,6 @@ msgid ""
 "On the graphics card the synthesizer takes little processor time, and on "
 "most cards it speaks faster. The first start after an update of the graphics "
 "driver takes longer."
-msgstr ""
-
-#: src/speech-page.c:1500
-msgid "_Device:"
 msgstr ""
 
 #: src/speech-page.c:1552

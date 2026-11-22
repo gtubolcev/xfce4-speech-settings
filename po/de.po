@@ -221,13 +221,9 @@ msgstr ""
 "hier gewählt wird oder mit der ersten Meldung, und nach fünf Minuten ohne "
 "Sprachausgabe freigegeben."
 
-#: src/speech-page.c:1491
-msgid "Processor"
-msgstr "Prozessor"
-
 #: src/speech-page.c:1493
-msgid "Graphics card (Vulkan)"
-msgstr "Grafikkarte (Vulkan)"
+msgid "Use the _graphics card (Vulkan)"
+msgstr "_Grafikkarte verwenden (Vulkan)"
 
 #: src/speech-page.c:1495
 msgid ""
@@ -238,10 +234,6 @@ msgstr ""
 "Auf der Grafikkarte braucht der Synthesizer wenig Prozessorzeit und spricht "
 "auf den meisten Karten schneller. Der erste Start nach einer Aktualisierung "
 "des Grafiktreibers dauert länger."
-
-#: src/speech-page.c:1500
-msgid "_Device:"
-msgstr "_Gerät:"
 
 #: src/speech-page.c:1552
 msgid "_Voices…"

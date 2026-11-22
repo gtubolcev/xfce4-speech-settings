@@ -916,15 +916,15 @@ speech_page_has_gpu (void)
   return cached;
 }
 
-/* Shows the device list (processor, graphics card) when the selected module
- * has a graphics card variant with a voice for the language */
+/* Shows the graphics card check box when the selected module has a
+ * graphics card variant with a voice for the language */
 void
 speech_page_sync_gpu (SpeechPage *page)
 {
   gchar   *module, *cpu, *gpu, *language;
   gboolean visible = FALSE, on = FALSE, updating = page->updating;
 
-  if (page->device_combo == NULL)
+  if (page->gpu_check == NULL)
     return;
   module = speech_page_get_module (page);
   cpu = speechd_module_cpu_variant (module);
@@ -939,10 +939,8 @@ speech_page_sync_gpu (SpeechPage *page)
     }
 
   page->updating = TRUE;
-  gtk_widget_set_visible (page->device_label, visible);
-  gtk_widget_set_visible (page->device_combo, visible);
-  gtk_combo_box_set_active_id (GTK_COMBO_BOX (page->device_combo),
-                               on ? "gpu" : "cpu");
+  gtk_widget_set_visible (page->gpu_check, visible);
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (page->gpu_check), on);
   page->updating = updating;
   g_free (language);
   g_free (cpu);

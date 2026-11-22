@@ -591,8 +591,8 @@ speech_page_model_changed (GtkComboBox *combo,
 /* Switches between the module and its "-vulkan-rs" variant; the engine
  * entry stands for both and takes the id of the one in use */
 static void
-speech_page_device_changed (GtkComboBox *combo,
-                            SpeechPage  *page)
+speech_page_gpu_toggled (GtkToggleButton *button,
+                         SpeechPage      *page)
 {
   gchar   *module, *base, *wanted;
   gboolean updating = page->updating;
@@ -604,7 +604,7 @@ speech_page_device_changed (GtkComboBox *combo,
   base = speechd_module_cpu_variant (module);
   if (base == NULL)
     base = g_strdup (module);
-  wanted = g_strcmp0 (gtk_combo_box_get_active_id (combo), "gpu") == 0
+  wanted = gtk_toggle_button_get_active (button)
              ? speech_page_gpu_twin (page, base) : g_strdup (base);
 
   if (wanted != NULL && g_strcmp0 (wanted, module) != 0)
@@ -1486,23 +1486,18 @@ speech_page_new (void)
                                  "first message, and freed after five "
                                  "minutes without speech."));
   gtk_widget_set_no_show_all (page->preload_check, TRUE);
-  page->device_combo = gtk_combo_box_text_new ();
-  gtk_combo_box_text_append (GTK_COMBO_BOX_TEXT (page->device_combo), "cpu",
-                             _("Processor"));
-  gtk_combo_box_text_append (GTK_COMBO_BOX_TEXT (page->device_combo), "gpu",
-                             _("Graphics card (Vulkan)"));
-  gtk_widget_set_tooltip_text (page->device_combo,
+  page->gpu_check =
+    gtk_check_button_new_with_mnemonic (_("Use the _graphics card (Vulkan)"));
+  gtk_widget_set_tooltip_text (page->gpu_check,
                                _("On the graphics card the synthesizer takes "
                                  "little processor time, and on most cards "
                                  "it speaks faster. The first start after an "
                                  "update of the graphics driver takes "
                                  "longer."));
-  speech_page_grid_add (grid, 5, _("_Device:"), page->device_combo);
-  page->device_label = gtk_grid_get_child_at (GTK_GRID (grid), 0, 5);
-  gtk_widget_set_no_show_all (page->device_label, TRUE);
-  gtk_widget_set_no_show_all (page->device_combo, TRUE);
+  gtk_widget_set_no_show_all (page->gpu_check, TRUE);
   /* the state below the check box, which may be hidden */
   hbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+  gtk_box_pack_start (GTK_BOX (hbox), page->gpu_check, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (hbox), page->preload_check, FALSE, FALSE, 0);
   page->load_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   page->load_spinner = gtk_spinner_new ();
@@ -1514,7 +1509,7 @@ speech_page_new (void)
   gtk_box_pack_start (GTK_BOX (page->load_box), page->load_label, TRUE, TRUE, 0);
   gtk_widget_set_no_show_all (page->load_box, TRUE);
   gtk_box_pack_start (GTK_BOX (hbox), page->load_box, FALSE, FALSE, 0);
-  gtk_grid_attach (GTK_GRID (grid), hbox, 1, 6, 1, 1);
+  gtk_grid_attach (GTK_GRID (grid), hbox, 1, 5, 1, 1);
   /* First start: the synthesizer chosen for the desktop's language is kept
    * loaded (the check box on); every other one is off until the user turns
    * it on, for one used often next to the main one */
@@ -1544,8 +1539,8 @@ speech_page_new (void)
   speech_page_sync_preload (page);
   g_signal_connect (page->preload_check, "toggled",
                     G_CALLBACK (speech_page_preload_toggled), page);
-  g_signal_connect (page->device_combo, "changed",
-                    G_CALLBACK (speech_page_device_changed), page);
+  g_signal_connect (page->gpu_check, "toggled",
+                    G_CALLBACK (speech_page_gpu_toggled), page);
   speech_page_watch_load_state (page);
   speech_page_show_load_state (page);
 
@@ -1553,7 +1548,7 @@ speech_page_new (void)
   gtk_widget_set_tooltip_text (page->voices_button,
                                _("Download more voices for this synthesizer"));
   gtk_widget_set_halign (page->voices_button, GTK_ALIGN_START);
-  gtk_grid_attach (GTK_GRID (grid), page->voices_button, 1, 7, 1, 1);
+  gtk_grid_attach (GTK_GRID (grid), page->voices_button, 1, 6, 1, 1);
   gtk_widget_set_no_show_all (page->voices_button, TRUE);
   speech_page_sync_voices_button (page);
   g_signal_connect (page->voices_button, "clicked",
