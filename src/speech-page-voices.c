@@ -343,6 +343,11 @@ speech_page_model_name (const gchar *model)
 }
 
 /* The name of @module in the engine list */
+/* the modules of linux-tts that run their synthesizer with ONNX Runtime */
+static const gchar *const onnx_modules[] = {
+  "kokoro", "silero", "teratts", "vosk", NULL
+};
+
 static gchar *
 speech_page_engine_name (const gchar *module)
 {
@@ -353,6 +358,10 @@ speech_page_engine_name (const gchar *module)
     name = g_strdup ("sherpa-onnx (ONNX)");
   else if (strcmp (base, "audiocpp") == 0)
     name = g_strdup ("audio.cpp (ggml)");
+  else if (g_strv_contains (onnx_modules, base))
+    /* TRANSLATORS: a speechd module made for one synthesizer, "kokoro",
+     * that runs it with ONNX Runtime */
+    name = g_strdup_printf (_("%s (own module, ONNX)"), base);
   else
     /* TRANSLATORS: a speechd module made for one synthesizer, "kokoro" */
     name = g_strdup_printf (_("%s (own module)"), base);
@@ -691,11 +700,13 @@ speech_page_fill_modules (SpeechPage *page)
   if (current != NULL)
     gtk_combo_box_set_active_id (GTK_COMBO_BOX (combo), current);
 
-  /* the engine is a choice only when several modules run the model */
+  /* the engine is shown even without a choice: what runs the model
+   * (ONNX, ggml) matters to people who know them */
   if (page->module_label != NULL)
     {
-      gtk_widget_set_visible (page->module_label, n > 1);
-      gtk_widget_set_visible (page->module_combo, n > 1);
+      gtk_widget_set_visible (page->module_label, n > 0);
+      gtk_widget_set_visible (page->module_combo, n > 0);
+      gtk_widget_set_sensitive (page->module_combo, n > 1);
     }
 
   g_free (language);

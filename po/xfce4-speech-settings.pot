@@ -162,8 +162,8 @@ msgstr ""
 
 #: src/speech-page.c:1405
 msgid ""
-"The speech dispatcher module that runs the synthesizer. Shown when more than "
-"one can run it."
+"The speech dispatcher module that runs the synthesizer, and the runtime it "
+"uses. A choice when more than one can run it."
 msgstr ""
 
 #: src/speech-page.c:1408
@@ -389,6 +389,12 @@ msgstr ""
 #: src/speech-page-voices.c:358
 #, c-format
 msgid "%s (own module)"
+msgstr ""
+
+#. TRANSLATORS: a speechd module made for one synthesizer, "kokoro",
+#. that runs it with ONNX Runtime
+#, c-format
+msgid "%s (own module, ONNX)"
 msgstr ""
 
 #. TRANSLATORS: a synthesizer without a voice for the language

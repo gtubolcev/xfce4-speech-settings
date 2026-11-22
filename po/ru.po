@@ -174,11 +174,9 @@ msgstr "_Синтезатор:"
 
 #: src/speech-page.c:1405
 msgid ""
-"The speech dispatcher module that runs the synthesizer. Shown when more than "
-"one can run it."
-msgstr ""
-"Модуль speech-dispatcher, который запускает синтезатор. Показывается, "
-"когда запустить его могут несколько модулей."
+"The speech dispatcher module that runs the synthesizer, and the runtime it "
+"uses. A choice when more than one can run it."
+msgstr "Модуль speech-dispatcher, который запускает синтезатор, и среда, на которой он работает. Выбирается, когда запустить его могут несколько модулей."
 
 #: src/speech-page.c:1408
 msgid "_Engine:"
@@ -420,6 +418,12 @@ msgstr "Детский, женский"
 #, c-format
 msgid "%s (own module)"
 msgstr "%s (свой модуль)"
+
+#. TRANSLATORS: a speechd module made for one synthesizer, "kokoro",
+#. that runs it with ONNX Runtime
+#, c-format
+msgid "%s (own module, ONNX)"
+msgstr "%s (свой модуль, ONNX)"
 
 #. TRANSLATORS: a synthesizer without a voice for the language
 #: src/speech-page-voices.c:674
