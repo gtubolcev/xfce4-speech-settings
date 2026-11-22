@@ -1057,6 +1057,8 @@ speech_page_free (gpointer data)
     g_source_remove (page->watch_id);
   if (page->fit_id != 0)
     g_source_remove (page->fit_id);
+  if (page->pending_id != 0)
+    g_source_remove (page->pending_id);
 
   if (page->connection != NULL)
     spd_close (page->connection);
@@ -1403,8 +1405,8 @@ speech_page_new (void)
   page->module_combo = gtk_combo_box_text_new ();
   gtk_widget_set_tooltip_text (page->module_combo,
                                _("The speech dispatcher module that runs the "
-                                 "synthesizer. Shown when more than one "
-                                 "can run it."));
+                                 "synthesizer, and the runtime it uses. "
+                                 "A choice when more than one can run it."));
   speech_page_grid_add (grid, 4, _("_Engine:"), page->module_combo);
   page->module_label = gtk_grid_get_child_at (GTK_GRID (grid), 0, 4);
   gtk_widget_set_no_show_all (page->module_label, TRUE);
@@ -1689,6 +1691,8 @@ speech_page_new (void)
   gtk_grid_attach (GTK_GRID (grid), hbox, 2, 0, 1, 1);
 
   button = gtk_button_new_with_mnemonic (_("_Speak"));
+  page->speak_button = button;
+  speech_page_show_load_state (page);
   g_signal_connect (button, "clicked",
                     G_CALLBACK (speech_page_test_clicked), page);
   gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 0);

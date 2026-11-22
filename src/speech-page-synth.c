@@ -236,6 +236,7 @@ speech_page_unpark (const gchar *module)
  * loading drops the model when the load ends. */
 
 #define RELEASE_DELAY_S 2
+#define PENDING_TIMEOUT_MS 2500
 
 static gchar *
 speech_page_runtime_path (const gchar *module,
@@ -282,6 +283,12 @@ speech_page_show_load_state (SpeechPage *page)
       g_free (path);
     }
 
+  /* the voice is not there yet: speaking now would wait for it or use the
+   * old one */
+  if (page->speak_button != NULL)
+    gtk_widget_set_sensitive (page->speak_button,
+                              !loading && page->pending_id == 0);
+
   if (text != NULL)
     {
       gtk_label_set_text (GTK_LABEL (page->load_label), text);
@@ -311,7 +318,27 @@ speech_page_load_state_changed (GFileMonitor     *monitor,
                                 GFileMonitorEvent event,
                                 SpeechPage       *page)
 {
+  gchar *base = g_file_get_basename (file);
+
+  /* the module took the request: from now on its state tells */
+  if (page->pending_id != 0 && g_str_has_suffix (base, ".state"))
+    {
+      g_source_remove (page->pending_id);
+      page->pending_id = 0;
+    }
+  g_free (base);
   speech_page_show_load_state (page);
+}
+
+/* the module did not answer: the voice was loaded already */
+static gboolean
+speech_page_pending_timeout (gpointer data)
+{
+  SpeechPage *page = data;
+
+  page->pending_id = 0;
+  speech_page_show_load_state (page);
+  return G_SOURCE_REMOVE;
 }
 
 void
@@ -352,7 +379,16 @@ speech_page_request_load (SpeechPage *page)
           /* a new file each time: the module sees it even if the voice is
            * the same as last time */
           if (g_file_set_contents (path, text, -1, NULL))
-            g_hash_table_add (page->load_requested, g_strdup (module));
+            {
+              g_hash_table_add (page->load_requested, g_strdup (module));
+              /* the module looks at the request every 2 s (CONFIG_CHECK_MS
+               * in linux-tts) and writes .state only when it loads */
+              if (page->pending_id != 0)
+                g_source_remove (page->pending_id);
+              page->pending_id =
+                g_timeout_add (PENDING_TIMEOUT_MS,
+                               speech_page_pending_timeout, page);
+            }
           g_free (text);
         }
       g_free (dir);

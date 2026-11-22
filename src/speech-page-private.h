@@ -71,6 +71,7 @@ typedef struct
   GtkWidget     *load_box;
   GtkWidget     *load_spinner;
   GtkWidget     *load_label;
+  GtkWidget     *speak_button;      /* insensitive while a voice loads */
   GFileMonitor  *load_monitor;
   /* the modules asked to load a voice, to let go when the dialog closes */
   GHashTable    *load_requested;
@@ -105,6 +106,7 @@ typedef struct
   guint          watch_id;
   guint          fit_id;        /* fits test_view's height to its text */
   guint          release_id;    /* frees the synthesizers switched away from */
+  guint          pending_id;    /* a load request the module has not seen yet */
   /* the server the module list came from (its socket), see
    * speech_page_server_changed */
   dev_t          server_dev;
