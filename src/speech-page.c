@@ -548,18 +548,51 @@ speech_page_module_changed (GtkComboBox *combo,
                             SpeechPage  *page)
 {
   const gchar *module = gtk_combo_box_get_active_id (combo);
+  gchar       *voice;
 
   if (page->updating || module == NULL)
     return;
 
+  /* the same voice in the other engine, when it has it */
+  voice = g_strdup (gtk_combo_box_get_active_id (GTK_COMBO_BOX (page->voice_combo)));
   speech_page_use_module (page, module);
+  speech_page_ensure_voice (page, voice);
+  g_free (voice);
 }
 
-/* Switches between the synthesizer and its "-vulkan-rs" variant; the menu
+/* Another model ("Synthesizer"): the engine list follows, and the configured
+ * module changes when it does not run the model; a voice of the model is
+ * then chosen and saved */
+static void
+speech_page_model_changed (GtkComboBox *combo,
+                           SpeechPage  *page)
+{
+  const gchar *model = gtk_combo_box_get_active_id (combo);
+  gchar       *module;
+
+  if (page->updating || model == NULL)
+    return;
+
+  g_free (page->model);
+  page->model = g_strdup (model);
+
+  page->updating = TRUE;
+  speech_page_fill_modules (page);
+  page->updating = FALSE;
+  module = speech_page_get_module (page);
+  if (module != NULL && *module != '\0')
+    {
+      speech_page_use_module (page, module);
+      speech_page_ensure_voice (page, NULL);
+    }
+  g_free (module);
+}
+
+/* Switches between the module and its "-vulkan-rs" variant; the engine
  * entry stands for both and takes the id of the one in use */
 static void
-speech_page_gpu_toggled (GtkToggleButton *button,
-                         SpeechPage      *page)
+speech_page_device_changed (GtkComboBox *combo,
+                            SpeechPage  *page)
 {
   gchar   *module, *base, *wanted;
   gboolean updating = page->updating;
@@ -571,16 +604,25 @@ speech_page_gpu_toggled (GtkToggleButton *button,
   base = speechd_module_cpu_variant (module);
   if (base == NULL)
     base = g_strdup (module);
-  wanted = gtk_toggle_button_get_active (button)
+  wanted = g_strcmp0 (gtk_combo_box_get_active_id (combo), "gpu") == 0
              ? speech_page_gpu_twin (page, base) : g_strdup (base);
 
   if (wanted != NULL && g_strcmp0 (wanted, module) != 0)
     {
+      gchar *voice = g_strdup (gtk_combo_box_get_active_id (
+                                 GTK_COMBO_BOX (page->voice_combo)));
+
       speech_page_store_module (page, wanted);
       page->updating = TRUE;
       speech_page_fill_modules (page);
       page->updating = updating;
       speech_page_use_module (page, wanted);
+      /* the same voice on the other device, also over the one configured
+       * there ("changed" saves it) */
+      if (voice != NULL)
+        gtk_combo_box_set_active_id (GTK_COMBO_BOX (page->voice_combo), voice);
+      speech_page_ensure_voice (page, NULL);
+      g_free (voice);
     }
   else
     speech_page_sync_gpu (page);
@@ -692,8 +734,11 @@ speech_page_apply_language (gpointer data)
   speech_page_update_test_text (page, *language != '\0' ? language : DEFAULT_LANGUAGE);
 
   /* the synthesizer may change with the language: its "changed" handler is
-   * blocked here, so read the voices of the one now selected */
+   * blocked here, so read the voices of the one now selected. The model
+   * follows the configuration of the language. */
+  g_clear_pointer (&page->model, g_free);
   page->updating = TRUE;
+  speech_page_fill_models (page);
   speech_page_fill_modules (page);
   page->updating = FALSE;
   speech_page_load_voices (page);
@@ -1028,6 +1073,8 @@ speech_page_free (gpointer data)
     free_spd_voices (page->voices);
   g_strfreev (page->modules);
   g_hash_table_destroy (page->module_languages);
+  g_hash_table_destroy (page->module_voices);
+  g_free (page->model);
   g_ptr_array_free (page->languages, TRUE);
 
   speechd_config_free (page->config);
@@ -1230,6 +1277,9 @@ speech_page_new (void)
   page->module_languages =
     g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
                            (GDestroyNotify) g_ptr_array_unref);
+  page->module_voices =
+    g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+                           (GDestroyNotify) free_spd_voices);
   page->load_requested = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                 g_free, NULL);
   page->languages = g_ptr_array_new_with_free_func (g_free);
@@ -1339,18 +1389,32 @@ speech_page_new (void)
   gtk_entry_set_text (GTK_ENTRY (entry), value != NULL ? value : "");
   g_free (value);
 
-  page->module_combo = gtk_combo_box_text_new ();
-  gtk_widget_set_tooltip_text (page->module_combo,
+  /* the synthesizer (the model: Piper, Kokoro...), then its voice, then
+   * the engine that runs it and the device (user, 2026-11-22) */
+  page->model_combo = gtk_combo_box_text_new ();
+  gtk_widget_set_tooltip_text (page->model_combo,
                                _("The speech synthesizer used when an "
                                  "application does not ask for another one. "
                                  "Only the ones with a voice for the "
                                  "language are offered."));
-  speech_page_grid_add (grid, 1, _("_Synthesizer:"), page->module_combo);
+  speech_page_grid_add (grid, 1, _("_Synthesizer:"), page->model_combo);
+  speech_page_fill_models (page);
+
+  page->module_combo = gtk_combo_box_text_new ();
+  gtk_widget_set_tooltip_text (page->module_combo,
+                               _("The speech dispatcher module that runs the "
+                                 "synthesizer. Shown when more than one "
+                                 "can run it."));
+  speech_page_grid_add (grid, 4, _("_Engine:"), page->module_combo);
+  page->module_label = gtk_grid_get_child_at (GTK_GRID (grid), 0, 4);
+  gtk_widget_set_no_show_all (page->module_label, TRUE);
+  gtk_widget_set_no_show_all (page->module_combo, TRUE);
   speech_page_fill_modules (page);
   speech_page_load_voices (page);
   if (first_start)
     {
       const gchar *module = gtk_combo_box_get_active_id (GTK_COMBO_BOX (page->module_combo));
+      gchar       *model = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (page->model_combo));
 
       if (module != NULL && *module != '\0')
         {
@@ -1363,14 +1427,17 @@ speech_page_new (void)
                                     "loaded, so speech starts at once. Other "
                                     "synthesizers and voices can be chosen "
                                     "below."),
-                                  module, language);
+                                  model != NULL ? model : module, language);
           speech_page_show_message (page, GTK_MESSAGE_INFO, text);
           g_free (text);
           g_free (language);
           if (speechd_config_is_dirty (page->config))
             speech_page_queue_save (page);
         }
+      g_free (model);
     }
+  g_signal_connect (page->model_combo, "changed",
+                    G_CALLBACK (speech_page_model_changed), page);
   g_signal_connect (page->module_combo, "changed",
                     G_CALLBACK (speech_page_module_changed), page);
   g_signal_connect (page->language_combo, "changed",
@@ -1419,18 +1486,23 @@ speech_page_new (void)
                                  "first message, and freed after five "
                                  "minutes without speech."));
   gtk_widget_set_no_show_all (page->preload_check, TRUE);
-  page->gpu_check =
-    gtk_check_button_new_with_mnemonic (_("Use the _graphics card (Vulkan)"));
-  gtk_widget_set_tooltip_text (page->gpu_check,
-                               _("Run the synthesizer on the graphics card: "
-                                 "it takes little processor time, and on "
-                                 "most cards it speaks faster. The first "
-                                 "start after an update of the graphics "
-                                 "driver takes longer."));
-  gtk_widget_set_no_show_all (page->gpu_check, TRUE);
+  page->device_combo = gtk_combo_box_text_new ();
+  gtk_combo_box_text_append (GTK_COMBO_BOX_TEXT (page->device_combo), "cpu",
+                             _("Processor"));
+  gtk_combo_box_text_append (GTK_COMBO_BOX_TEXT (page->device_combo), "gpu",
+                             _("Graphics card (Vulkan)"));
+  gtk_widget_set_tooltip_text (page->device_combo,
+                               _("On the graphics card the synthesizer takes "
+                                 "little processor time, and on most cards "
+                                 "it speaks faster. The first start after an "
+                                 "update of the graphics driver takes "
+                                 "longer."));
+  speech_page_grid_add (grid, 5, _("_Device:"), page->device_combo);
+  page->device_label = gtk_grid_get_child_at (GTK_GRID (grid), 0, 5);
+  gtk_widget_set_no_show_all (page->device_label, TRUE);
+  gtk_widget_set_no_show_all (page->device_combo, TRUE);
   /* the state below the check box, which may be hidden */
   hbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
-  gtk_box_pack_start (GTK_BOX (hbox), page->gpu_check, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (hbox), page->preload_check, FALSE, FALSE, 0);
   page->load_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   page->load_spinner = gtk_spinner_new ();
@@ -1442,7 +1514,7 @@ speech_page_new (void)
   gtk_box_pack_start (GTK_BOX (page->load_box), page->load_label, TRUE, TRUE, 0);
   gtk_widget_set_no_show_all (page->load_box, TRUE);
   gtk_box_pack_start (GTK_BOX (hbox), page->load_box, FALSE, FALSE, 0);
-  gtk_grid_attach (GTK_GRID (grid), hbox, 1, 4, 1, 1);
+  gtk_grid_attach (GTK_GRID (grid), hbox, 1, 6, 1, 1);
   /* First start: the synthesizer chosen for the desktop's language is kept
    * loaded (the check box on); every other one is off until the user turns
    * it on, for one used often next to the main one */
@@ -1472,8 +1544,8 @@ speech_page_new (void)
   speech_page_sync_preload (page);
   g_signal_connect (page->preload_check, "toggled",
                     G_CALLBACK (speech_page_preload_toggled), page);
-  g_signal_connect (page->gpu_check, "toggled",
-                    G_CALLBACK (speech_page_gpu_toggled), page);
+  g_signal_connect (page->device_combo, "changed",
+                    G_CALLBACK (speech_page_device_changed), page);
   speech_page_watch_load_state (page);
   speech_page_show_load_state (page);
 
@@ -1481,7 +1553,7 @@ speech_page_new (void)
   gtk_widget_set_tooltip_text (page->voices_button,
                                _("Download more voices for this synthesizer"));
   gtk_widget_set_halign (page->voices_button, GTK_ALIGN_START);
-  gtk_grid_attach (GTK_GRID (grid), page->voices_button, 1, 5, 1, 1);
+  gtk_grid_attach (GTK_GRID (grid), page->voices_button, 1, 7, 1, 1);
   gtk_widget_set_no_show_all (page->voices_button, TRUE);
   speech_page_sync_voices_button (page);
   g_signal_connect (page->voices_button, "clicked",

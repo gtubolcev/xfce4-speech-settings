@@ -69,6 +69,10 @@ speech_page_same_language (const gchar *a,
 static gint
 speech_page_compare_strings (gconstpointer a,
                              gconstpointer b);
+static const gchar *
+speech_page_resolve_voice (SPDVoice   **voices,
+                           const gchar *language,
+                           const gchar *type);
 
 
 
@@ -139,6 +143,7 @@ speech_page_scan_modules (SpeechPage *page)
 
   g_clear_pointer (&page->modules, g_strfreev);
   g_hash_table_remove_all (page->module_languages);
+  g_hash_table_remove_all (page->module_voices);
   g_ptr_array_set_size (page->languages, 0);
 
   if (!speech_page_connect (page))
@@ -186,8 +191,9 @@ speech_page_scan_modules (SpeechPage *page)
           else
             g_free (base);
         }
+      /* kept for the synthesizer list: the models of all modules */
       if (voices != NULL)
-        free_spd_voices (voices);
+        g_hash_table_insert (page->module_voices, g_strdup (module), voices);
 
       g_hash_table_insert (page->module_languages, g_strdup (module),
                            languages);
@@ -235,97 +241,462 @@ speech_page_store_module (SpeechPage  *page,
 
 
 
-/* Offers the modules that speak the selected language, and the selected one */
+/* Synthesizer, engine, device (user, 2026-11-22): the dialog offers the
+ * models first (Piper, Kokoro, RHVoice...), then the module that runs the
+ * chosen one, then CPU or graphics card. The configuration is unchanged:
+ * speechd keeps a module and a voice per language, the model is read from
+ * the voice. */
+
+/* modules that serve several models: a voice name starts with its model,
+ * "piper-ru-irina", "supertonic-ru-female-1" (sd_sherpa) */
+static const gchar *multi_model_modules[] = { "sherpa-onnx", "audiocpp", NULL };
+
+/* the names of the models, by the first part of their voice names or the
+ * module that serves only one */
+static const Choice model_names[] =
+{
+  { "kokoro", "Kokoro" },
+  { "mms", "MMS" },
+  { "piper", "Piper" },
+  { "pocket", "Pocket TTS" },
+  { "rhvoice", "RHVoice" },
+  { "silero", "Silero" },
+  { "supertonic", "Supertonic" },
+  { "teratts", "TeraTTS" },
+  { "vits", "VITS" },
+  { "vosk", "Vosk TTS" },
+};
+
+/* @module without "-vulkan-rs" */
+static gchar *
+speech_page_module_base (const gchar *module)
+{
+  gchar *base = speechd_module_cpu_variant (module);
+
+  return base != NULL ? base : g_strdup (module);
+}
+
+/* The model a voice of @module belongs to, as an interned key: "piper" for
+ * "piper-ru-irina" of sherpa-onnx, "rhvoice" for every voice of rhvoice */
+const gchar *
+speech_page_voice_model (const gchar *module,
+                         const gchar *voice)
+{
+  gchar       *base = speech_page_module_base (module);
+  const gchar *key;
+
+  if (voice != NULL && g_strv_contains (multi_model_modules, base))
+    {
+      gchar *family = g_ascii_strdown (voice, strcspn (voice, "-"));
+
+      key = g_intern_string (family);
+      g_free (family);
+    }
+  else
+    key = g_intern_string (base);
+
+  g_free (base);
+  return key;
+}
+
+/* The speaker part of a voice name, for the list under its model:
+ * "irina" for "piper-ru-irina", "bf_emma" for "kokoro-en-gb-bf_emma" */
+static gchar *
+speech_page_voice_label (const gchar *module,
+                         SPDVoice    *voice)
+{
+  const gchar *model = speech_page_voice_model (module, voice->name);
+  const gchar *language = voice->language != NULL ? voice->language : "";
+  const gchar *rest = voice->name;
+  gsize        len = strlen (model);
+  gsize        k;
+
+  if (g_ascii_strncasecmp (rest, model, len) != 0 || rest[len] != '-')
+    return g_strdup (voice->name);
+  rest += len + 1;
+
+  /* the language, "en-gb" for "en-GB" */
+  for (k = 0; language[k] != '\0' && rest[k] != '\0'; k++)
+    if (g_ascii_tolower (rest[k]) != g_ascii_tolower (language[k])
+        && !(strchr ("-_", rest[k]) != NULL && strchr ("-_", language[k]) != NULL))
+      break;
+  if (k > 0 && language[k] == '\0' && rest[k] == '-')
+    rest += k + 1;
+
+  /* "mms-ru": nothing but the model and the language */
+  if (*rest == '\0' || g_ascii_strcasecmp (rest, language) == 0)
+    rest = voice->name;
+
+  return g_strdup (rest);
+}
+
+static const gchar *
+speech_page_model_name (const gchar *model)
+{
+  guint i;
+
+  for (i = 0; i < G_N_ELEMENTS (model_names); i++)
+    if (strcmp (model_names[i].id, model) == 0)
+      return model_names[i].label;
+
+  return model;
+}
+
+/* The name of @module in the engine list */
+static gchar *
+speech_page_engine_name (const gchar *module)
+{
+  gchar *base = speech_page_module_base (module);
+  gchar *name;
+
+  if (strcmp (base, "sherpa-onnx") == 0)
+    name = g_strdup ("sherpa-onnx (ONNX)");
+  else if (strcmp (base, "audiocpp") == 0)
+    name = g_strdup ("audio.cpp (ggml)");
+  else
+    /* TRANSLATORS: a speechd module made for one synthesizer, "kokoro" */
+    name = g_strdup_printf (_("%s (own module)"), base);
+
+  g_free (base);
+  return name;
+}
+
+/* Whether @module is an entry of the lists: not hidden, and not the
+ * graphics card variant of a module the server has (the device list picks
+ * that one) */
+static gboolean
+speech_page_module_listed (SpeechPage  *page,
+                           const gchar *module)
+{
+  gchar   *cpu;
+  gboolean listed;
+
+  if (g_strv_contains (hidden_modules, module))
+    return FALSE;
+  cpu = speechd_module_cpu_variant (module);
+  listed = cpu == NULL || page->modules == NULL
+           || !g_strv_contains ((const gchar *const *) page->modules, cpu);
+  g_free (cpu);
+  return listed;
+}
+
+/* Adds the models @module has for @language to @models (interned keys);
+ * a module that lists no voices stands for one model */
+static void
+speech_page_module_models (SpeechPage  *page,
+                           const gchar *module,
+                           const gchar *language,
+                           GPtrArray   *models)
+{
+  SPDVoice **voices = g_hash_table_lookup (page->module_voices, module);
+  gboolean   any = FALSE;
+  guint      i;
+
+  if (!speech_page_module_speaks (page, module, language))
+    return;
+  for (i = 0; voices != NULL && voices[i] != NULL; i++)
+    {
+      const gchar *key;
+
+      if (voices[i]->name == NULL || voices[i]->language == NULL
+          || !speech_page_same_language (voices[i]->language, language))
+        continue;
+      any = TRUE;
+      key = speech_page_voice_model (module, voices[i]->name);
+      if (!g_ptr_array_find (models, key, NULL))
+        g_ptr_array_add (models, (gpointer) key);
+    }
+  if (!any)
+    {
+      const gchar *key = speech_page_voice_model (module, NULL);
+
+      if (!g_ptr_array_find (models, key, NULL))
+        g_ptr_array_add (models, (gpointer) key);
+    }
+}
+
+/* Whether @module runs @model (NULL: any) for @language */
+static gboolean
+speech_page_module_has_model (SpeechPage  *page,
+                              const gchar *module,
+                              const gchar *language,
+                              const gchar *model)
+{
+  GPtrArray *models;
+  gboolean   has;
+
+  if (model == NULL)
+    return speech_page_module_speaks (page, module, language);
+  models = g_ptr_array_new ();
+  speech_page_module_models (page, module, language, models);
+  has = g_ptr_array_find (models, g_intern_string (model), NULL);
+  g_ptr_array_free (models, TRUE);
+  return has;
+}
+
+/* The model the configured module speaks @language with: the model of its
+ * configured voice, else of the voice the voice type selects */
+static const gchar *
+speech_page_configured_model (SpeechPage  *page,
+                              const gchar *module,
+                              const gchar *language)
+{
+  SPDVoice   **voices;
+  const gchar *voice_language = NULL;
+  const gchar *key = NULL;
+  gchar       *active = NULL;
+  gchar       *type;
+  guint        i;
+
+  if (module == NULL || *module == '\0'
+      || !speech_page_module_speaks (page, module, language))
+    return NULL;
+  voices = g_hash_table_lookup (page->module_voices, module);
+  if (voices == NULL)
+    return speech_page_voice_model (module, NULL);
+
+  for (i = 0; voices[i] != NULL; i++)
+    if (voices[i]->language != NULL
+        && speech_page_same_language (voices[i]->language, language)
+        && (voice_language == NULL
+            || g_ascii_strcasecmp (voices[i]->language, language) == 0))
+      voice_language = voices[i]->language;
+  type = speech_page_get_voice_type (page);
+  if (voice_language != NULL)
+    active = speechd_module_get_voice (module, voice_language, type);
+  for (i = 0; active != NULL && voices[i] != NULL; i++)
+    if (g_strcmp0 (voices[i]->name, active) == 0)
+      key = speech_page_voice_model (module, active);
+  if (key == NULL)
+    {
+      const gchar *name = speech_page_resolve_voice (voices, language, type);
+
+      if (name != NULL)
+        key = speech_page_voice_model (module, name);
+    }
+  g_free (active);
+  g_free (type);
+  return key;
+}
+
+static gint
+speech_page_compare_models (gconstpointer a,
+                            gconstpointer b)
+{
+  return g_utf8_collate (speech_page_model_name (*(const gchar **) a),
+                         speech_page_model_name (*(const gchar **) b));
+}
+
+/* Offers the models of all modules for the selected language and selects
+ * the one chosen in this run, else the one the configuration speaks with */
+void
+speech_page_fill_models (SpeechPage *page)
+{
+  GtkComboBoxText *combo;
+  GPtrArray       *models;
+  const gchar     *selected = NULL;
+  const gchar     *first = NULL;
+  gchar           *language;
+  gchar           *current = NULL;
+  gboolean         updating = page->updating;
+  guint            i;
+
+  if (page->model_combo == NULL)
+    return;
+  combo = GTK_COMBO_BOX_TEXT (page->model_combo);
+  language = speech_page_get_language (page);
+  current = speechd_config_get_language_module (page->config, language);
+  if (current == NULL)
+    current = speechd_config_get (page->config, "DefaultModule");
+
+  models = g_ptr_array_new ();
+  for (i = 0; page->modules != NULL && page->modules[i] != NULL; i++)
+    {
+      guint before = models->len;
+
+      if (!speech_page_module_listed (page, page->modules[i]))
+        continue;
+      speech_page_module_models (page, page->modules[i], language, models);
+      /* sherpa-onnx first, as in the engine list */
+      if (models->len > before
+          && (first == NULL || strcmp (page->modules[i], "sherpa-onnx") == 0))
+        first = page->modules[i];
+    }
+
+  if (page->model != NULL
+      && g_ptr_array_find (models, g_intern_string (page->model), NULL))
+    selected = g_intern_string (page->model);
+  if (selected == NULL)
+    {
+      selected = speech_page_configured_model (page, current, language);
+      if (selected != NULL && !g_ptr_array_find (models, selected, NULL))
+        selected = NULL;
+    }
+  /* nothing configured: the model of the voice the first module would
+   * choose by the voice type */
+  if (selected == NULL && first != NULL)
+    selected = speech_page_configured_model (page, first, language);
+  if (selected == NULL && models->len > 0)
+    selected = g_ptr_array_index (models, 0);
+
+  g_ptr_array_sort (models, speech_page_compare_models);
+  page->updating = TRUE;
+  gtk_combo_box_text_remove_all (combo);
+  for (i = 0; i < models->len; i++)
+    {
+      const gchar *key = g_ptr_array_index (models, i);
+
+      gtk_combo_box_text_append (combo, key, speech_page_model_name (key));
+    }
+  if (selected != NULL)
+    gtk_combo_box_set_active_id (GTK_COMBO_BOX (combo), selected);
+  gtk_widget_set_sensitive (page->model_combo, models->len > 0);
+  page->updating = updating;
+
+  g_ptr_array_free (models, TRUE);
+  g_free (current);
+  g_free (language);
+}
+
+/* The selected model, or NULL while there is none */
+static const gchar *
+speech_page_get_model (SpeechPage *page)
+{
+  if (page->model_combo == NULL)
+    return NULL;
+  return gtk_combo_box_get_active_id (GTK_COMBO_BOX (page->model_combo));
+}
+
+/* After the model, the engine or the device changed: the module may have no
+ * voice configured for the language, or one of another model. Take @prefer,
+ * the voice used before, when the list has it (the same voice on the
+ * graphics card), else the first voice of the list, and save it. */
+gboolean
+speech_page_ensure_voice (SpeechPage  *page,
+                          const gchar *prefer)
+{
+  GtkComboBox *combo = GTK_COMBO_BOX (page->voice_combo);
+
+  if (page->updating || !gtk_widget_get_sensitive (page->voice_combo)
+      || gtk_combo_box_get_active_id (combo) != NULL)
+    return FALSE;
+  /* emits "changed": the voice is saved */
+  if (prefer == NULL || !gtk_combo_box_set_active_id (combo, prefer))
+    gtk_combo_box_set_active (combo, 0);
+  return gtk_combo_box_get_active_id (combo) != NULL;
+}
+
+
+
+/* Offers the modules ("engines") that run the selected model for the
+ * selected language, and selects the configured one */
 void
 speech_page_fill_modules (SpeechPage *page)
 {
   GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT (page->module_combo);
-  gchar           *current;
-  gchar           *language;
-  gchar           *label;
+  const gchar     *model = speech_page_get_model (page);
   const gchar     *first = NULL;
+  gchar           *current = NULL;
+  gchar           *language;
   gboolean         found = FALSE;
+  guint            n = 0;
   guint            i;
 
   language = speech_page_get_language (page);
-  current = NULL;
   if (language != NULL && *language != '\0')
     current = speechd_config_get_language_module (page->config, language);
   if (current == NULL)
     current = speechd_config_get (page->config, "DefaultModule");
 
-  gtk_combo_box_text_remove_all (combo);
-
+  /* sherpa-onnx, the module of the linux-tts-* packages, before the
+   * others, which are heavier or need their model installed by hand */
   for (i = 0; page->modules != NULL && page->modules[i] != NULL; i++)
-    {
-      const gchar *module = page->modules[i];
-      gchar       *cpu = speechd_module_cpu_variant (module);
-      gchar       *gpu;
-      const gchar *name = module;
-
-      if (g_strv_contains (hidden_modules, module))
-        {
-          g_free (cpu);
-          continue;
-        }
-      /* a graphics card variant is no entry of its own: the check box under
-       * its synthesizer picks it, and the entry of that one stands for it */
-      if (cpu != NULL && g_strv_contains ((const gchar *const *) page->modules, cpu))
-        {
-          g_free (cpu);
-          continue;
-        }
-      g_free (cpu);
-      gpu = speech_page_gpu_twin (page, module);
-      if (gpu != NULL && g_strcmp0 (gpu, current) == 0)
-        module = gpu;
-      /* sherpa-onnx, the module of the linux-tts-* packages, before the
-       * others, which are heavier or need their model installed by hand */
-      if ((first == NULL || g_strcmp0 (name, "sherpa-onnx") == 0)
-          && speech_page_module_speaks (page, module, language))
-        first = module;
-      if (g_strcmp0 (module, current) == 0)
-        found = TRUE;
-      else if (!speech_page_module_speaks (page, module, language))
-        {
-          g_free (gpu);
-          continue;
-        }
-
-      if (speech_page_module_speaks (page, module, language))
-        gtk_combo_box_text_append (combo, module, name);
-      else
-        {
-          /* TRANSLATORS: a synthesizer without a voice for the language */
-          label = g_strdup_printf (_("%s (no voice)"), name);
-          gtk_combo_box_text_append (combo, module, label);
-          g_free (label);
-        }
-      g_free (gpu);
-    }
-
-  /* keep a configured module that is not loaded at the moment */
-  if (current != NULL && *current != '\0' && !found)
-    gtk_combo_box_text_append (combo, current, current);
+    if (speech_page_module_listed (page, page->modules[i])
+        && speech_page_module_has_model (page, page->modules[i], language, model)
+        && (first == NULL || strcmp (page->modules[i], "sherpa-onnx") == 0))
+      first = page->modules[i];
 
   /* Without a module for the language Speech Dispatcher would use
    * espeak-ng, which is hidden here, or a module without a voice for it,
-   * which reads the text with a voice of another language. Take the first
-   * synthesizer that speaks the language instead, also in the
-   * configuration, so the dialog shows what is used. */
+   * which reads the text with a voice of another language; a module
+   * without the chosen model would not speak with it. Take the first one
+   * that does instead, also in the configuration, so the dialog shows
+   * what is used. The graphics card stays in use when that one has a
+   * variant for it. */
   if (first != NULL
       && (current == NULL || *current == '\0'
-          || !speech_page_module_speaks (page, current, language)))
+          || !speech_page_module_has_model (page, current, language, model)))
     {
+      gchar *gpu = NULL;
+
+      if (current != NULL && g_str_has_suffix (current, "-vulkan-rs"))
+        gpu = speech_page_gpu_twin (page, first);
+      if (gpu != NULL && !speech_page_module_speaks (page, gpu, language))
+        g_clear_pointer (&gpu, g_free);
       g_free (current);
-      current = g_strdup (first);
+      current = gpu != NULL ? gpu : g_strdup (first);
       speech_page_store_module (page, current);
       if (speechd_config_is_dirty (page->config))
         speech_page_queue_save (page);
     }
 
+  gtk_combo_box_text_remove_all (combo);
+  for (i = 0; page->modules != NULL && page->modules[i] != NULL; i++)
+    {
+      const gchar *module = page->modules[i];
+      gchar       *gpu;
+      gchar       *label;
+      gboolean     runs;
+
+      /* a graphics card variant is no entry of its own: the device list
+       * picks it, and the entry of its module stands for it */
+      if (!speech_page_module_listed (page, module))
+        continue;
+      gpu = speech_page_gpu_twin (page, module);
+      if (gpu != NULL && g_strcmp0 (gpu, current) == 0)
+        module = gpu;
+      runs = speech_page_module_has_model (page, module, language, model);
+      /* the configured module without a voice stays when nothing speaks */
+      if (g_strcmp0 (module, current) == 0)
+        found = TRUE;
+      else if (!runs)
+        {
+          g_free (gpu);
+          continue;
+        }
+
+      label = speech_page_engine_name (module);
+      if (!runs)
+        {
+          gchar *text;
+
+          /* TRANSLATORS: a synthesizer without a voice for the language */
+          text = g_strdup_printf (_("%s (no voice)"), label);
+          g_free (label);
+          label = text;
+        }
+      gtk_combo_box_text_append (combo, module, label);
+      g_free (label);
+      g_free (gpu);
+      n++;
+    }
+
+  /* keep a configured module that is not loaded at the moment */
+  if (current != NULL && *current != '\0' && !found)
+    {
+      gtk_combo_box_text_append (combo, current, current);
+      n++;
+    }
+
   if (current != NULL)
     gtk_combo_box_set_active_id (GTK_COMBO_BOX (combo), current);
+
+  /* the engine is a choice only when several modules run the model */
+  if (page->module_label != NULL)
+    {
+      gtk_widget_set_visible (page->module_label, n > 1);
+      gtk_widget_set_visible (page->module_combo, n > 1);
+    }
 
   g_free (language);
   g_free (current);
@@ -545,15 +916,15 @@ speech_page_has_gpu (void)
   return cached;
 }
 
-/* Shows the check box "Use the graphics card" when the selected synthesizer
- * has a variant for it with a voice for the language, on while it is used */
+/* Shows the device list (processor, graphics card) when the selected module
+ * has a graphics card variant with a voice for the language */
 void
 speech_page_sync_gpu (SpeechPage *page)
 {
   gchar   *module, *cpu, *gpu, *language;
   gboolean visible = FALSE, on = FALSE, updating = page->updating;
 
-  if (page->gpu_check == NULL)
+  if (page->device_combo == NULL)
     return;
   module = speech_page_get_module (page);
   cpu = speechd_module_cpu_variant (module);
@@ -568,8 +939,10 @@ speech_page_sync_gpu (SpeechPage *page)
     }
 
   page->updating = TRUE;
-  gtk_widget_set_visible (page->gpu_check, visible);
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (page->gpu_check), on);
+  gtk_widget_set_visible (page->device_label, visible);
+  gtk_widget_set_visible (page->device_combo, visible);
+  gtk_combo_box_set_active_id (GTK_COMBO_BOX (page->device_combo),
+                               on ? "gpu" : "cpu");
   page->updating = updating;
   g_free (language);
   g_free (cpu);
@@ -653,6 +1026,7 @@ speech_page_update_voices (SpeechPage *page)
   GtkComboBoxText    *combo;
   SpeechdVoiceSetting setting;
   GHashTable         *seen;
+  const gchar        *model = speech_page_get_model (page);
   gchar              *module;
   gchar              *language;
   gchar              *type;
@@ -683,8 +1057,17 @@ speech_page_update_voices (SpeechPage *page)
           || !speech_page_same_language (voice->language, language)
           || g_hash_table_contains (seen, voice->name))
         continue;
+      /* only the voices of the chosen model */
+      if (model != NULL
+          && speech_page_voice_model (module, voice->name) != g_intern_string (model))
+        continue;
       g_hash_table_add (seen, voice->name);
-      gtk_combo_box_text_append (combo, voice->name, voice->name);
+      {
+        gchar *label = speech_page_voice_label (module, voice);
+
+        gtk_combo_box_text_append (combo, voice->name, label);
+        g_free (label);
+      }
       /* an exact match of the language wins, "en" for "en-US" otherwise */
       if (voice_language == NULL
           || g_ascii_strcasecmp (voice->language, language) == 0)
@@ -701,6 +1084,10 @@ speech_page_update_voices (SpeechPage *page)
   if (active == NULL && setting != SPEECHD_VOICE_SETTING_NONE)
     active = g_strdup (speech_page_resolve_voice (page->voices, language,
                                                   type));
+  /* a voice of another model is not in the list */
+  if (active != NULL && model != NULL
+      && speech_page_voice_model (module, active) != g_intern_string (model))
+    g_clear_pointer (&active, g_free);
   if (active != NULL)
     gtk_combo_box_set_active_id (GTK_COMBO_BOX (combo), active);
 
@@ -786,6 +1173,7 @@ speech_page_refill_modules (gpointer data)
 
   page->updating = TRUE;
   speech_page_scan_modules (page);
+  speech_page_fill_models (page);
   speech_page_fill_modules (page);
   speech_page_load_voices (page);
   {
@@ -826,6 +1214,8 @@ speech_page_watch_modules (gpointer data)
     return G_SOURCE_CONTINUE;
 
   g_object_get (page->module_combo, "popup-shown", &shown, NULL);
+  if (!shown && page->model_combo != NULL)
+    g_object_get (page->model_combo, "popup-shown", &shown, NULL);
   if (shown)
     return G_SOURCE_CONTINUE;
 

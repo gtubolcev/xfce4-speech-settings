@@ -56,14 +56,17 @@ typedef struct
   GtkWidget     *info_label;
   GtkWidget     *modules_bar;
 
-  GtkWidget     *module_combo;
+  GtkWidget     *model_combo;       /* "Synthesizer": Piper, Kokoro, ... */
+  GtkWidget     *module_combo;      /* "Engine": the speechd module */
+  GtkWidget     *module_label;
   GtkWidget     *language_combo;
   GtkWidget     *voice_combo;
   GtkWidget     *voice_type_label;
   GtkWidget     *voice_type_combo;
   GtkWidget     *preload_check;
   /* runs the synthesizer's "-vulkan-rs" variant, which the menu hides */
-  GtkWidget     *gpu_check;
+  GtkWidget     *device_combo;      /* CPU or the -vulkan-rs variant */
+  GtkWidget     *device_label;
   GtkWidget     *voices_button;
   /* "Loading the voice…" or why it failed, next to preload_check */
   GtkWidget     *load_box;
@@ -77,6 +80,8 @@ typedef struct
   /* the modules of the server, and the languages each one has voices for */
   gchar        **modules;
   GHashTable    *module_languages;
+  GHashTable    *module_voices;     /* module -> SPDVoice ** of the scan */
+  gchar         *model;             /* the synthesizer chosen in this run */
   /* the languages of all modules, sorted */
   GPtrArray     *languages;
   GtkWidget     *rate_spin;
@@ -145,6 +150,11 @@ void speech_page_update_voices (SpeechPage *page);
 gchar *speech_page_gpu_twin (SpeechPage  *page,
                              const gchar *module);
 void speech_page_sync_gpu (SpeechPage *page);
+const gchar *speech_page_voice_model (const gchar *module,
+                                      const gchar *voice);
+void speech_page_fill_models (SpeechPage *page);
+gboolean speech_page_ensure_voice (SpeechPage  *page,
+                                   const gchar *prefer);
 gboolean speech_page_is_language_code (const gchar *text);
 gchar *speech_page_locale_language (void);
 gboolean speech_page_refill_modules (gpointer data);
