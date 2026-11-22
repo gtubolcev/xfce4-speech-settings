@@ -533,7 +533,8 @@ test_module_layered (void)
 
 
 
-/* sd_sherpa-onnx under four names reads the Sherpa or the Piper options */
+/* sd_sherpa-onnx under four names reads the Sherpa or the Piper options;
+ * sd_kokoro and sd_audiocpp under two */
 static void
 test_module_variant (void)
 {
@@ -545,6 +546,13 @@ test_module_variant (void)
   g_assert_cmpstr (speechd_module_base ("piper-sherpa-onnx-vulkan-rs"), ==, "piper");
   g_assert_cmpstr (speechd_module_base ("kokoro-vulkan-rs"), ==, "kokoro");
   g_assert_true (speechd_module_reads_changes ("kokoro-vulkan-rs"));
+  g_assert_cmpstr (speechd_module_base ("audiocpp-vulkan-rs"), ==, "audiocpp");
+  g_assert_true (speechd_module_reads_changes ("audiocpp"));
+  g_assert_true (speechd_module_reads_changes ("audiocpp-vulkan-rs"));
+  g_assert_cmpint (speechd_module_voice_setting ("audiocpp-vulkan-rs"), ==, SPEECHD_VOICE_SETTING_MODULE);
+  key = speechd_module_option_key ("audiocpp-vulkan-rs", "Voice");
+  g_assert_cmpstr (key, ==, "AudiocppVoice");
+  g_free (key);
   g_assert_cmpstr (speechd_module_base ("espeak-ng"), ==, "espeak-ng");
   {
     gchar *v;

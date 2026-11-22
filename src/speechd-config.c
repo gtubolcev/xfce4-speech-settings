@@ -1341,10 +1341,10 @@ module_line_values (const gchar *line,
 }
 
 /* our modules, which read "<Module>Voice" ("zonos3" is built by hand) */
-static const gchar *const own_modules[] = { "zonos3", "sherpa", "piper", "vosk", "kokoro", "teratts", NULL };
+static const gchar *const own_modules[] = { "zonos3", "sherpa", "piper", "vosk", "kokoro", "teratts", "audiocpp", NULL };
 
 /* Synthesizer names of our modules and the option prefix each reads:
- * sd_sherpa-onnx and sd_kokoro are installed under two names each (the
+ * sd_sherpa-onnx, sd_kokoro and sd_audiocpp are installed under two names each (the
  * second runs on the graphics card), with a configuration each;
  * the piper-sherpa-onnx names are those of speech-dispatcher-modules before
  * Piper joined the synthesizer sherpa-onnx (2026-11-16) */
@@ -1354,6 +1354,7 @@ static const gchar *const module_variants[][2] = {
   { "piper-sherpa-onnx", "piper" },
   { "piper-sherpa-onnx-vulkan-rs", "piper" },
   { "kokoro-vulkan-rs", "kokoro" },
+  { "audiocpp-vulkan-rs", "audiocpp" },
 };
 
 /* The option prefix of @module: "sherpa" for "sherpa-onnx-vulkan-rs",
@@ -1417,7 +1418,7 @@ speechd_module_option_key (const gchar *module,
  * and reads one file. */
 static const gchar *const layered_modules[] = {
   "sherpa-onnx", "sherpa-onnx-vulkan-rs", "piper-sherpa-onnx", "piper-sherpa-onnx-vulkan-rs",
-  "vosk", "kokoro", "kokoro-vulkan-rs", "teratts", "silero", NULL
+  "vosk", "kokoro", "kokoro-vulkan-rs", "teratts", "silero", "audiocpp", "audiocpp-vulkan-rs", NULL
 };
 
 /* Whether @module notices the changes of its file itself, without the server
