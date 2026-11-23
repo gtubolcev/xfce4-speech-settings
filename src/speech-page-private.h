@@ -171,6 +171,7 @@ void speech_page_set_module_option (SpeechPage  *page,
 gchar *speech_page_preload_value (SpeechPage  *page,
                                   const gchar *module);
 void speech_page_park_preloads (SpeechPage *page);
+void speech_page_shrink_window (GtkWidget *toplevel);
 void speech_page_show_load_state (SpeechPage *page);
 void speech_page_watch_load_state (SpeechPage *page);
 void speech_page_request_load (SpeechPage *page);

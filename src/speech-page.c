@@ -900,21 +900,35 @@ speech_page_voices_clicked (GtkButton  *button,
 
 
 
+/* Shrinks @toplevel to its content after something in it got smaller.
+ * Not a maximized, tiled or full screen window: the window manager keeps
+ * its size, and asking for another one there left parts of the dialog
+ * drawn at their old place (the directory entry over the row above). */
+void
+speech_page_shrink_window (GtkWidget *toplevel)
+{
+  GdkWindow *window;
+  gint       width;
+
+  if (!GTK_IS_WINDOW (toplevel) || !gtk_widget_get_realized (toplevel))
+    return;
+  window = gtk_widget_get_window (toplevel);
+  if (gdk_window_get_state (window)
+      & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN
+         | GDK_WINDOW_STATE_TILED | GDK_WINDOW_STATE_TOP_TILED
+         | GDK_WINDOW_STATE_BOTTOM_TILED | GDK_WINDOW_STATE_LEFT_TILED
+         | GDK_WINDOW_STATE_RIGHT_TILED))
+    return;
+  gtk_window_get_size (GTK_WINDOW (toplevel), &width, NULL);
+  gtk_window_resize (GTK_WINDOW (toplevel), width, 1);
+}
+
 /* A window does not get smaller by itself when a child is hidden */
 static void
 speech_page_hide_modules_bar (SpeechPage *page)
 {
-  GtkWidget *toplevel;
-  gint       width;
-
   gtk_widget_hide (page->modules_bar);
-
-  toplevel = gtk_widget_get_toplevel (page->modules_bar);
-  if (GTK_IS_WINDOW (toplevel))
-    {
-      gtk_window_get_size (GTK_WINDOW (toplevel), &width, NULL);
-      gtk_window_resize (GTK_WINDOW (toplevel), width, 1);
-    }
+  speech_page_shrink_window (gtk_widget_get_toplevel (page->modules_bar));
 }
 
 
@@ -1216,9 +1230,8 @@ speech_page_fit_test_text (gpointer data)
   gtk_scrolled_window_set_min_content_height (GTK_SCROLLED_WINDOW (scrolled), height);
   /* a window keeps its size when its content gets smaller: shrink it */
   toplevel = gtk_widget_get_toplevel (page->test_view);
-  if (height < old && GTK_IS_WINDOW (toplevel))
-    gtk_window_resize (GTK_WINDOW (toplevel),
-                       gtk_widget_get_allocated_width (toplevel), 1);
+  if (height < old)
+    speech_page_shrink_window (toplevel);
   return G_SOURCE_REMOVE;
 }
 
