@@ -180,7 +180,7 @@ msgstr ""
 
 #: src/speech-page.c:1424
 msgid "_Engine:"
-msgstr "_Engine:"
+msgstr "Mod_ul:"
 
 #. TRANSLATORS: first start of the dialog; %s are the synthesizer
 #. * and the language code
