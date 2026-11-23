@@ -65,7 +65,8 @@ typedef struct
   GtkWidget     *voice_type_combo;
   GtkWidget     *preload_check;
   /* runs the synthesizer's "-vulkan-rs" variant, which the menu hides */
-  GtkWidget     *gpu_check;         /* the -vulkan-rs variant */
+  GtkWidget     *gpu_box;           /* "CPU [switch] GPU" */
+  GtkWidget     *gpu_switch;        /* on: the -vulkan-rs variant */
   GtkWidget     *voices_button;
   /* "Loading the voice…" or why it failed, next to preload_check */
   GtkWidget     *load_box;

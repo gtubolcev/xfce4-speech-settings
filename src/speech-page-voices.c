@@ -924,32 +924,75 @@ speech_page_has_gpu (void)
   return cached;
 }
 
-/* Shows the graphics card check box when the selected module has a
- * graphics card variant with a voice for the language */
+/* The runtime that runs @module on the graphics card, for the tooltip */
+static gchar *
+speech_page_gpu_runtime (const gchar *module)
+{
+  gchar *base = speech_page_module_base (module);
+  gchar *name;
+
+  if (strcmp (base, "audiocpp") == 0)
+    name = g_strdup ("audio.cpp (ggml), Vulkan");
+  else if (strcmp (base, "sherpa-onnx") == 0 || g_strv_contains (onnx_modules, base))
+    name = g_strdup ("ONNX Runtime, Vulkan");
+  else
+    name = g_strdup ("Vulkan");
+
+  g_free (base);
+  return name;
+}
+
+/* The processor/graphics card switch: on for the graphics card variant,
+ * off and greyed when the selected module has none with a voice for the
+ * language, or the computer has no graphics card; the tooltip says why, or
+ * which runtime runs on the card */
 void
 speech_page_sync_gpu (SpeechPage *page)
 {
-  gchar   *module, *cpu, *gpu, *language;
-  gboolean visible = FALSE, on = FALSE, updating = page->updating;
+  gchar       *module, *cpu, *gpu = NULL, *language, *runtime, *tip;
+  const gchar *reason = NULL;
+  gboolean     on = FALSE, updating = page->updating;
 
-  if (page->gpu_check == NULL)
+  if (page->gpu_switch == NULL)
     return;
   module = speech_page_get_module (page);
   cpu = speechd_module_cpu_variant (module);
   language = speech_page_get_language (page);
   if (cpu != NULL && g_strv_contains ((const gchar *const *) page->modules, cpu))
-    visible = on = TRUE;
-  else if (speech_page_has_gpu ()
-           && (gpu = speech_page_gpu_twin (page, module)) != NULL)
     {
-      visible = speech_page_module_speaks (page, gpu, language);
-      g_free (gpu);
+      on = TRUE;
+      gpu = g_strdup (module);
+    }
+  else if ((gpu = speech_page_gpu_twin (page, module)) == NULL)
+    reason = _("This synthesizer runs on the processor only.");
+  else if (!speech_page_has_gpu ())
+    reason = _("No graphics card was found.");
+  else if (!speech_page_module_speaks (page, gpu, language))
+    reason = _("On the graphics card this synthesizer has no voice for the "
+               "language.");
+
+  if (reason != NULL)
+    tip = g_strdup (reason);
+  else
+    {
+      runtime = speech_page_gpu_runtime (gpu);
+      /* TRANSLATORS: %s is the runtime, as "ONNX Runtime, Vulkan" */
+      tip = g_strdup_printf (_("On the graphics card the synthesizer takes "
+                               "little processor time, and on most cards it "
+                               "speaks faster. The first start after an "
+                               "update of the graphics driver takes longer.\n"
+                               "Runs with %s."), runtime);
+      g_free (runtime);
     }
 
   page->updating = TRUE;
-  gtk_widget_set_visible (page->gpu_check, visible);
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (page->gpu_check), on);
+  gtk_widget_set_visible (page->gpu_box, module != NULL);
+  gtk_widget_set_sensitive (page->gpu_box, reason == NULL);
+  gtk_widget_set_tooltip_text (page->gpu_box, tip);
+  gtk_switch_set_active (GTK_SWITCH (page->gpu_switch), on);
   page->updating = updating;
+  g_free (tip);
+  g_free (gpu);
   g_free (language);
   g_free (cpu);
   g_free (module);

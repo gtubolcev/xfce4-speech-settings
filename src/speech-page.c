@@ -591,8 +591,9 @@ speech_page_model_changed (GtkComboBox *combo,
 /* Switches between the module and its "-vulkan-rs" variant; the engine
  * entry stands for both and takes the id of the one in use */
 static void
-speech_page_gpu_toggled (GtkToggleButton *button,
-                         SpeechPage      *page)
+speech_page_gpu_toggled (GObject    *button,
+                         GParamSpec *pspec,
+                         SpeechPage *page)
 {
   gchar   *module, *base, *wanted;
   gboolean updating = page->updating;
@@ -604,7 +605,7 @@ speech_page_gpu_toggled (GtkToggleButton *button,
   base = speechd_module_cpu_variant (module);
   if (base == NULL)
     base = g_strdup (module);
-  wanted = gtk_toggle_button_get_active (button)
+  wanted = gtk_switch_get_active (GTK_SWITCH (button))
              ? speech_page_gpu_twin (page, base) : g_strdup (base);
 
   if (wanted != NULL && g_strcmp0 (wanted, module) != 0)
@@ -1501,18 +1502,22 @@ speech_page_new (void)
                                  "first message, and freed after five "
                                  "minutes without speech."));
   gtk_widget_set_no_show_all (page->preload_check, TRUE);
-  page->gpu_check =
-    gtk_check_button_new_with_mnemonic (_("Use the _graphics card (Vulkan)"));
-  gtk_widget_set_tooltip_text (page->gpu_check,
-                               _("On the graphics card the synthesizer takes "
-                                 "little processor time, and on most cards "
-                                 "it speaks faster. The first start after an "
-                                 "update of the graphics driver takes "
-                                 "longer."));
-  gtk_widget_set_no_show_all (page->gpu_check, TRUE);
-  /* the state below the check box, which may be hidden */
+  /* CPU or GPU; the tooltip names the runtime (speech_page_sync_gpu) */
+  page->gpu_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_widget_set_halign (page->gpu_box, GTK_ALIGN_START);
+  /* TRANSLATORS: the processor, left of the switch to the graphics card */
+  gtk_box_pack_start (GTK_BOX (page->gpu_box), gtk_label_new (_("CPU")),
+                      FALSE, FALSE, 0);
+  page->gpu_switch = gtk_switch_new ();
+  gtk_widget_set_valign (page->gpu_switch, GTK_ALIGN_CENTER);
+  gtk_box_pack_start (GTK_BOX (page->gpu_box), page->gpu_switch, FALSE, FALSE, 0);
+  /* TRANSLATORS: the graphics card, right of the switch */
+  label = gtk_label_new_with_mnemonic (_("_GPU"));
+  gtk_label_set_mnemonic_widget (GTK_LABEL (label), page->gpu_switch);
+  gtk_box_pack_start (GTK_BOX (page->gpu_box), label, FALSE, FALSE, 0);
+  /* the state below the switch, which may be hidden */
   hbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
-  gtk_box_pack_start (GTK_BOX (hbox), page->gpu_check, FALSE, FALSE, 0);
+  gtk_box_pack_start (GTK_BOX (hbox), page->gpu_box, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (hbox), page->preload_check, FALSE, FALSE, 0);
   page->load_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   page->load_spinner = gtk_spinner_new ();
@@ -1554,7 +1559,8 @@ speech_page_new (void)
   speech_page_sync_preload (page);
   g_signal_connect (page->preload_check, "toggled",
                     G_CALLBACK (speech_page_preload_toggled), page);
-  g_signal_connect (page->gpu_check, "toggled",
+  speech_page_sync_gpu (page);
+  g_signal_connect (page->gpu_switch, "notify::active",
                     G_CALLBACK (speech_page_gpu_toggled), page);
   speech_page_watch_load_state (page);
   speech_page_show_load_state (page);
