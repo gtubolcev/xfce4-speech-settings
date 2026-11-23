@@ -385,18 +385,6 @@ msgstr ""
 msgid "Child, female"
 msgstr ""
 
-#. TRANSLATORS: a speechd module made for one synthesizer, "kokoro"
-#: src/speech-page-voices.c:358
-#, c-format
-msgid "%s (own module)"
-msgstr ""
-
-#. TRANSLATORS: a speechd module made for one synthesizer, "kokoro",
-#. that runs it with ONNX Runtime
-#, c-format
-msgid "%s (own module, ONNX)"
-msgstr ""
-
 #. TRANSLATORS: a synthesizer without a voice for the language
 #: src/speech-page-voices.c:674
 #, c-format

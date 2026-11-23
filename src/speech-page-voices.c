@@ -359,12 +359,9 @@ speech_page_engine_name (const gchar *module)
   else if (strcmp (base, "audiocpp") == 0)
     name = g_strdup ("audio.cpp (ggml)");
   else if (g_strv_contains (onnx_modules, base))
-    /* TRANSLATORS: a speechd module made for one synthesizer, "kokoro",
-     * that runs it with ONNX Runtime */
-    name = g_strdup_printf (_("%s (own module, ONNX)"), base);
+    name = g_strdup_printf ("%s (ONNX)", base);
   else
-    /* TRANSLATORS: a speechd module made for one synthesizer, "kokoro" */
-    name = g_strdup_printf (_("%s (own module)"), base);
+    name = g_strdup (base);
 
   g_free (base);
   return name;
