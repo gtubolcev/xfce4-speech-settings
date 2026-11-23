@@ -351,17 +351,23 @@ static const gchar *const onnx_modules[] = {
 static gchar *
 speech_page_engine_name (const gchar *module)
 {
-  gchar *base = speech_page_module_base (module);
-  gchar *name;
+  gchar       *base = speech_page_module_base (module);
+  gchar       *cpu = speechd_module_cpu_variant (module);
+  /* the graphics card variant runs on the same runtime, with Vulkan */
+  const gchar *vulkan = cpu != NULL ? ", Vulkan" : "";
+  gchar       *name;
 
   if (strcmp (base, "sherpa-onnx") == 0)
-    name = g_strdup ("sherpa-onnx (ONNX)");
+    name = g_strdup_printf ("sherpa-onnx (ONNX%s)", vulkan);
   else if (strcmp (base, "audiocpp") == 0)
-    name = g_strdup ("audio.cpp (ggml)");
+    name = g_strdup_printf ("audio.cpp (ggml%s)", vulkan);
   else if (g_strv_contains (onnx_modules, base))
-    name = g_strdup_printf ("%s (ONNX)", base);
+    name = g_strdup_printf ("%s (ONNX%s)", base, vulkan);
+  else if (cpu != NULL)
+    name = g_strdup_printf ("%s (Vulkan)", base);
   else
     name = g_strdup (base);
+  g_free (cpu);
 
   g_free (base);
   return name;
