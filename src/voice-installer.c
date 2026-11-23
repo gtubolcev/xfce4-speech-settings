@@ -68,6 +68,7 @@ static const VoiceSource *sources[] =
 {
   &voice_source_piper,
   &voice_source_rhvoice,
+  &voice_source_audiocpp,
 };
 
 
@@ -687,10 +688,88 @@ out:
 
 
 static void
+installer_command_done (GObject      *source,
+                        GAsyncResult *result,
+                        gpointer      data)
+{
+  Installer *in = data;
+  GBytes    *bytes = NULL;
+  GError    *error = NULL;
+
+  if (g_subprocess_communicate_finish (G_SUBPROCESS (source), result, &bytes, NULL, &error)
+      && !in->closed)
+    {
+      if (!g_subprocess_get_successful (G_SUBPROCESS (source)))
+        g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                             _("the program that lists them failed"));
+      else if (g_bytes_get_size (bytes) > CATALOGUE_MAX_SIZE)
+        g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
+                             _("The list of voices is too big"));
+      if (error == NULL)
+        installer_load_catalogue (in, g_bytes_get_data (bytes, NULL),
+                                  g_bytes_get_size (bytes), &error);
+    }
+  if (!in->closed)
+    {
+      if (error != NULL)
+        {
+          gchar *text = g_strdup_printf (_("The list of voices could not be "
+                                           "loaded: %s"), error->message);
+
+          installer_set_status (in, text);
+          g_free (text);
+        }
+      else
+        installer_set_status (in, NULL);
+      installer_update_buttons (in);
+    }
+
+  if (bytes != NULL)
+    g_bytes_unref (bytes);
+  g_clear_error (&error);
+  installer_unref (in);
+}
+
+/* the catalogue of a source that has a program for it */
+static void
+installer_run_catalogue (Installer *in)
+{
+  gchar      **argv = in->source->catalogue_command ();
+  GSubprocess *process;
+  GError      *error = NULL;
+
+  process = argv != NULL
+            ? g_subprocess_newv ((const gchar *const *) argv,
+                                 G_SUBPROCESS_FLAGS_STDOUT_PIPE
+                                 | G_SUBPROCESS_FLAGS_STDERR_SILENCE, &error)
+            : NULL;
+  g_strfreev (argv);
+  if (process == NULL)
+    {
+      gchar *text = g_strdup_printf (_("The list of voices could not be loaded: %s"),
+                                     error != NULL ? error->message : _("not installed"));
+
+      installer_set_status (in, text);
+      g_free (text);
+      g_clear_error (&error);
+      return;
+    }
+  installer_set_status (in, _("Loading the list of voices…"));
+  g_subprocess_communicate_async (process, NULL, in->cancellable,
+                                  installer_command_done, installer_ref (in));
+  g_object_unref (process);
+}
+
+static void
 installer_fetch_catalogue (Installer *in)
 {
   SoupMessage *msg;
 
+  if (in->source->catalogue_command != NULL)
+    {
+      installer_run_catalogue (in);
+      return;
+    }
   if (installer_load_cached (in, TRUE))
     return;
 

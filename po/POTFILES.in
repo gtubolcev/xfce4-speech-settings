@@ -5,6 +5,7 @@ src/speech-page.c
 src/speech-page-synth.c
 src/speech-page-voices.c
 src/voice-installer.c
+src/voice-source-audiocpp.c
 src/voice-source-piper.c
 src/voice-source-rhvoice.c
 src/voice-packagekit.c

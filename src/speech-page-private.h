@@ -68,6 +68,7 @@ typedef struct
   GtkWidget     *gpu_box;           /* "CPU [switch] GPU" */
   GtkWidget     *gpu_switch;        /* on: the -vulkan-rs variant */
   GtkWidget     *voices_button;
+  GtkWidget     *models_button;
   /* "Loading the voice…" or why it failed, next to preload_check */
   GtkWidget     *load_box;
   GtkWidget     *load_spinner;

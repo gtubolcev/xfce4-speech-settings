@@ -12,6 +12,7 @@ executable(
   'voice-installer.h',
   'voice-installer-private.h',
   'voice-packagekit.c',
+  'voice-source-audiocpp.c',
   'voice-source-piper.c',
   'voice-source-rhvoice.c',
   'voice-unzip.c',

@@ -12,6 +12,7 @@ test_voice_installer = executable(
   'test-voice-installer.c',
   '../src/voice-installer.c',
   '../src/voice-packagekit.c',
+  '../src/voice-source-audiocpp.c',
   '../src/voice-source-piper.c',
   '../src/voice-source-rhvoice.c',
   '../src/voice-unzip.c',

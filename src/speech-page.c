@@ -474,8 +474,13 @@ speech_page_sync_voices_button (SpeechPage *page)
     return;
 
   module = speech_page_get_module (page);
-  gtk_widget_set_visible (page->voices_button, voice_installer_has_source (module));
+  /* audio.cpp: its models are behind the button next to it */
+  gtk_widget_set_visible (page->voices_button,
+                          voice_installer_has_source (module)
+                          && !g_str_has_prefix (module, "audiocpp"));
   g_free (module);
+  if (page->models_button != NULL)
+    gtk_widget_set_visible (page->models_button, voice_installer_has_source ("audiocpp"));
 }
 
 
@@ -896,6 +901,19 @@ speech_page_voices_clicked (GtkButton  *button,
   voice_installer_show (GTK_IS_WINDOW (toplevel) ? GTK_WINDOW (toplevel) : NULL,
                         module, language, speech_page_voices_changed, page);
   g_free (module);
+  g_free (language);
+}
+
+/* the models of audio.cpp the packages cannot hold (Supertonic 3, ...) */
+static void
+speech_page_models_clicked (GtkButton  *button,
+                            SpeechPage *page)
+{
+  GtkWidget *toplevel = gtk_widget_get_toplevel (GTK_WIDGET (button));
+  gchar     *language = speech_page_get_language (page);
+
+  voice_installer_show (GTK_IS_WINDOW (toplevel) ? GTK_WINDOW (toplevel) : NULL,
+                        "audiocpp", language, speech_page_voices_changed, page);
   g_free (language);
 }
 
@@ -1568,12 +1586,25 @@ speech_page_new (void)
   page->voices_button = gtk_button_new_with_mnemonic (_("_Voices…"));
   gtk_widget_set_tooltip_text (page->voices_button,
                                _("Download more voices for this synthesizer"));
-  gtk_widget_set_halign (page->voices_button, GTK_ALIGN_START);
-  gtk_grid_attach (GTK_GRID (grid), page->voices_button, 1, 6, 1, 1);
+  page->models_button = gtk_button_new_with_mnemonic (_("_More Synthesizers…"));
+  gtk_widget_set_tooltip_text (page->models_button,
+                               _("Download synthesizers for audio.cpp whose "
+                                 "licences keep them out of the packages"));
+  {
+    GtkWidget *buttons = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+
+    gtk_widget_set_halign (buttons, GTK_ALIGN_START);
+    gtk_box_pack_start (GTK_BOX (buttons), page->voices_button, FALSE, FALSE, 0);
+    gtk_box_pack_start (GTK_BOX (buttons), page->models_button, FALSE, FALSE, 0);
+    gtk_grid_attach (GTK_GRID (grid), buttons, 1, 6, 1, 1);
+  }
   gtk_widget_set_no_show_all (page->voices_button, TRUE);
+  gtk_widget_set_no_show_all (page->models_button, TRUE);
   speech_page_sync_voices_button (page);
   g_signal_connect (page->voices_button, "clicked",
                     G_CALLBACK (speech_page_voices_clicked), page);
+  g_signal_connect (page->models_button, "clicked",
+                    G_CALLBACK (speech_page_models_clicked), page);
 
   /* rate, pitch, volume: a column right of language, synthesizer, voice */
   page->rate_spin = speech_page_bind_percent (page, "DefaultRate", 0);

@@ -57,6 +57,9 @@ struct _VoiceSource
   gboolean      no_size;          /* the catalogue gives no sizes */
   const gchar  *catalogue_url;
   const gchar  *cache_name;       /* in ~/.cache/PACKAGE */
+  /* instead of the URL: a program that prints the catalogue (argv, NULL
+   * when it is missing); not cached */
+  gchar      **(*catalogue_command) (void);
 
   gpointer    (*new_data)   (void);
   void        (*free_data)  (gpointer     data);
@@ -200,6 +203,7 @@ ViPackageResult vi_package_install_finish (GAsyncResult        *result,
 
 extern const VoiceSource voice_source_piper;
 extern const VoiceSource voice_source_rhvoice;
+extern const VoiceSource voice_source_audiocpp;
 
 G_END_DECLS
 
