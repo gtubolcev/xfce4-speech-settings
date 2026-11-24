@@ -283,6 +283,14 @@ speech_page_show_load_state (SpeechPage *page)
       g_free (path);
     }
 
+  /* a request the module has not taken yet counts as loading: the user sees
+   * it at once */
+  if (!loading && text == NULL && page->pending_id != 0)
+    {
+      loading = TRUE;
+      text = g_strdup (_("Loading the voice…"));
+    }
+
   /* the voice is not there yet: speaking now would wait for it or use the
    * old one */
   if (page->speak_button != NULL)
@@ -360,11 +368,32 @@ speech_page_watch_load_state (SpeechPage *page)
   g_free (dir);
 }
 
+/* The user is switching the engine, the synthesizer or the device: from this
+ * moment, before the new module is known, Speak is insensitive and "Loading
+ * the voice…" shows. speech_page_request_load () takes it from here (and
+ * ends it when the module does not load voices). */
+void
+speech_page_begin_load (SpeechPage *page)
+{
+  if (page->pending_id != 0)
+    g_source_remove (page->pending_id);
+  page->pending_id = g_timeout_add (PENDING_TIMEOUT_MS,
+                                    speech_page_pending_timeout, page);
+  speech_page_show_load_state (page);
+}
+
 /* the user chose the synthesizer or its voice: load it now */
 void
 speech_page_request_load (SpeechPage *page)
 {
   gchar *module = speech_page_get_module (page);
+
+  if ((module == NULL || !speechd_module_reads_changes (module))
+      && page->pending_id != 0)
+    {
+      g_source_remove (page->pending_id);
+      page->pending_id = 0;
+    }
 
   if (module != NULL && speechd_module_reads_changes (module))
     {

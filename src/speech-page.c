@@ -558,6 +558,7 @@ speech_page_module_changed (GtkComboBox *combo,
   if (page->updating || module == NULL)
     return;
 
+  speech_page_begin_load (page);
   /* the same voice in the other engine, when it has it */
   voice = g_strdup (gtk_combo_box_get_active_id (GTK_COMBO_BOX (page->voice_combo)));
   speech_page_use_module (page, module);
@@ -578,6 +579,7 @@ speech_page_model_changed (GtkComboBox *combo,
   if (page->updating || model == NULL)
     return;
 
+  speech_page_begin_load (page);
   g_free (page->model);
   page->model = g_strdup (model);
 
@@ -606,6 +608,7 @@ speech_page_gpu_toggled (GObject    *button,
   if (page->updating)
     return;
 
+  speech_page_begin_load (page);
   module = speech_page_get_module (page);
   base = speechd_module_cpu_variant (module);
   if (base == NULL)
@@ -631,7 +634,11 @@ speech_page_gpu_toggled (GObject    *button,
       g_free (voice);
     }
   else
-    speech_page_sync_gpu (page);
+    {
+      /* nothing to load: end what speech_page_begin_load () started */
+      speech_page_request_load (page);
+      speech_page_sync_gpu (page);
+    }
 
   g_free (wanted);
   g_free (base);

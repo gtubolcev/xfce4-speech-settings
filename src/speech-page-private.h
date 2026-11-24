@@ -176,6 +176,7 @@ void speech_page_park_preloads (SpeechPage *page);
 void speech_page_shrink_window (GtkWidget *toplevel);
 void speech_page_show_load_state (SpeechPage *page);
 void speech_page_watch_load_state (SpeechPage *page);
+void speech_page_begin_load (SpeechPage *page);
 void speech_page_request_load (SpeechPage *page);
 void speech_page_release_loads (SpeechPage *page);
 void speech_page_schedule_release (SpeechPage *page);
