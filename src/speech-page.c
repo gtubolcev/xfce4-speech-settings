@@ -523,6 +523,7 @@ speech_page_can_add_voices (SpeechPage *page)
 static void speech_page_add_voices (SpeechPage *page, GtkComboBox *combo);
 static void speech_page_more_models (SpeechPage *page, GtkComboBox *combo);
 static void speech_page_voices_changed (gpointer data);
+static void speech_page_update_test_text (SpeechPage *page, const gchar *language);
 
 static void
 speech_page_voice_changed (GtkComboBox *combo,
@@ -551,6 +552,8 @@ speech_page_voice_changed (GtkComboBox *combo,
   language = speech_page_get_language (page);
   type = speech_page_get_voice_type (page);
   voice = speech_page_find_voice (page, name, language);
+  /* an emptied test field gets the sentence of the language again */
+  speech_page_update_test_text (page, language);
 
   /* the module knows the language as its voice says, e.g. "ru", not "ru-RU" */
   if (voice != NULL && module != NULL
@@ -754,7 +757,9 @@ speech_page_update_test_text (SpeechPage  *page,
 
   buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (page->test_view));
   current = speech_page_get_view_text (page);
-  kept = page->test_text != NULL && g_strcmp0 (current, page->test_text) != 0;
+  /* an emptied field is no text of the user's: it gets the sentence again */
+  kept = page->test_text != NULL && *g_strstrip (current) != '\0'
+         && g_strcmp0 (current, page->test_text) != 0;
   g_free (current);
   if (kept)
     return;
