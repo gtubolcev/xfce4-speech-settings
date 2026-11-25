@@ -116,6 +116,20 @@ lang_names_lookup (GHashTable  *table,
 
 
 
+/* "Neugriechisch (ab 1453)" -> "Neugriechisch": the region follows in
+ * parentheses, two pairs would be hard to read */
+static gchar *
+lang_names_strip (gchar *name)
+{
+  gchar *open = strstr (name, " (");
+
+  if (open != NULL && open != name && g_str_has_suffix (name, ")"))
+    *open = '\0';
+  return name;
+}
+
+
+
 /* "de", "de_DE", "en-us" -> "Deutsch"; fallback (or code) if unknown */
 gchar *
 lang_names_language (const gchar *code,
@@ -125,8 +139,9 @@ lang_names_language (const gchar *code,
 
   if (table == NULL)
     table = lang_names_table ("iso_639-3.json", "639-3", "alpha_2", "alpha_3");
-  return lang_names_lookup (table, "iso_639-3", code,
-                            code != NULL ? strcspn (code, "-_") : 0, fallback);
+  return lang_names_strip (lang_names_lookup (table, "iso_639-3", code,
+                                              code != NULL ? strcspn (code, "-_") : 0,
+                                              fallback));
 }
 
 
