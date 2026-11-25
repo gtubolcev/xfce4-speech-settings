@@ -24,7 +24,7 @@ Ubuntu 26.04 and 24.04, from the PPA:
 ```sh
 sudo add-apt-repository ppa:gtubolcev/linux-tts
 sudo apt install xfce4-speech-settings        # Xfce
-sudo apt install speech-settings-standalone   # other desktops
+sudo apt install speech-settings-gtk   # other desktops
 ```
 
 ## Build

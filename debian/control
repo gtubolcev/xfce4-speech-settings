@@ -34,11 +34,13 @@ Description: speech settings dialog for Xfce
  This build appears in the Xfce settings manager; speech-settings-standalone
  is the same dialog for other desktops.
 
-Package: speech-settings-standalone
+Package: speech-settings-gtk
 Section: utils
 Architecture: any
 Depends: speech-dispatcher, ${misc:Depends}, ${shlibs:Depends}
 Recommends: iso-codes
+Replaces: speech-settings-standalone
+Breaks: speech-settings-standalone
 Description: speech settings dialog
  Chooses the language, the synthesizer and the voice of speech-dispatcher, the
  text-to-speech service of the desktop, and sets the rate, pitch, volume,
