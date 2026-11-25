@@ -31,7 +31,7 @@ Description: speech settings dialog for Xfce
  text-to-speech service of the desktop, and sets the rate, pitch, volume,
  punctuation and audio output. Has a field to test the voice.
  .
- This build appears in the Xfce settings manager; speech-settings-standalone
+ This build appears in the Xfce settings manager; speech-settings-gtk
  is the same dialog for other desktops.
 
 Package: speech-settings-gtk
