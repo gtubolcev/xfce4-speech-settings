@@ -312,6 +312,9 @@ main (gint    argc,
   speech_page_add_close (page, button);
 
   g_signal_connect (dialog, "response", G_CALLBACK (dialog_response), page);
+  /* Escape or the window manager's close button destroy the dialog after
+   * the response (which flushed the page): page is NULL then */
+  g_object_add_weak_pointer (G_OBJECT (page), (gpointer *) &page);
   the_dialog = dialog;
   gtk_widget_show_all (dialog);
 
@@ -323,7 +326,8 @@ main (gint    argc,
   gtk_main ();
 
   /* also after a signal, which bypasses the response */
-  speech_page_flush (page);
+  if (page != NULL)
+    speech_page_flush (page);
   g_object_unref (app);
 
   return EXIT_SUCCESS;
