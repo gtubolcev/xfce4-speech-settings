@@ -333,6 +333,44 @@ static GtkSizeGroup *percent_label_size_group = NULL;
  * combos */
 static GtkSizeGroup *right_size_group = NULL;
 
+/* A label shown later (the homographs row) can be wider than the others:
+ * GTK 3 does not widen the label columns of the other grids by itself, and
+ * the label then runs under its list */
+void
+speech_page_resize_groups (void)
+{
+  GtkSizeGroup *groups[] = { label_size_group, combo_size_group };
+  guint         i;
+
+  for (i = 0; i < G_N_ELEMENTS (groups); i++)
+    {
+      GSList *l;
+
+      if (groups[i] == NULL)
+        continue;
+      for (l = gtk_size_group_get_widgets (groups[i]); l != NULL; l = l->next)
+        gtk_widget_queue_resize (l->data);
+    }
+}
+
+
+
+/* A list cuts a long entry with "…" at this width instead of stretching */
+static void
+speech_page_ellipsize_combo (GtkWidget *combo)
+{
+  GList *cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (combo));
+  GList *l;
+
+  for (l = cells; l != NULL; l = l->next)
+    if (GTK_IS_CELL_RENDERER_TEXT (l->data))
+      g_object_set (l->data, "ellipsize", PANGO_ELLIPSIZE_END,
+                    "max-width-chars", 32, NULL);
+  g_list_free (cells);
+}
+
+
+
 static void
 speech_page_grid_add (GtkWidget   *grid,
                       gint         row,
@@ -352,16 +390,9 @@ speech_page_grid_add (GtkWidget   *grid,
                                  ? GTK_ALIGN_FILL : GTK_ALIGN_START);
   if (GTK_IS_COMBO_BOX (widget))
     {
-      GList *cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (widget));
-      GList *l;
-
       /* the widest entry must not stretch every list: a long name is cut
        * with "…" (user, 2026-11-25: the lists were too wide) */
-      for (l = cells; l != NULL; l = l->next)
-        if (GTK_IS_CELL_RENDERER_TEXT (l->data))
-          g_object_set (l->data, "ellipsize", PANGO_ELLIPSIZE_END,
-                        "max-width-chars", 32, NULL);
-      g_list_free (cells);
+      speech_page_ellipsize_combo (widget);
       gtk_size_group_add_widget (combo_size_group, widget);
     }
   gtk_grid_attach (GTK_GRID (grid), widget, 1, row, 1, 1);
@@ -1685,6 +1716,7 @@ speech_page_new (void)
   gtk_label_set_mnemonic_widget (GTK_LABEL (page->homographs_label), page->homographs_combo);
   gtk_grid_attach (GTK_GRID (grid), page->homographs_label, 0, 3, 1, 1);
   gtk_widget_set_halign (page->homographs_combo, GTK_ALIGN_FILL);
+  speech_page_ellipsize_combo (page->homographs_combo);
   gtk_size_group_add_widget (combo_size_group, page->homographs_combo);
   gtk_grid_attach (GTK_GRID (grid), page->homographs_combo, 1, 3, 1, 1);
   gtk_widget_set_no_show_all (page->homographs_label, TRUE);

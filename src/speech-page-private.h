@@ -152,6 +152,7 @@ void speech_page_retry_if_empty (SpeechPage *page);
 gchar *speech_page_get_module (SpeechPage *page);
 gchar *speech_page_get_language (SpeechPage *page);
 gchar *speech_page_entry_language (SpeechPage *page);
+void speech_page_resize_groups (void);
 void speech_page_set_language_text (SpeechPage *page, const gchar *code);
 gchar *speech_page_get_voice_type (SpeechPage *page);
 SPDVoice *speech_page_find_voice (SpeechPage  *page,

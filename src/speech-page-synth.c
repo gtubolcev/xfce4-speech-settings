@@ -679,8 +679,12 @@ speech_page_sync_homographs (SpeechPage *page)
     }
   gtk_combo_box_set_active (GTK_COMBO_BOX (page->homographs_combo), active);
   gtk_widget_set_tooltip_text (page->homographs_combo, _(homograph_modes[active].tip));
-  gtk_widget_set_visible (page->homographs_label, supported);
-  gtk_widget_set_visible (page->homographs_combo, supported);
+  if (gtk_widget_get_visible (page->homographs_label) != supported)
+    {
+      gtk_widget_set_visible (page->homographs_label, supported);
+      gtk_widget_set_visible (page->homographs_combo, supported);
+      speech_page_resize_groups ();
+    }
   page->updating = updating;
   g_free (value);
   g_free (language);
