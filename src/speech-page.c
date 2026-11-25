@@ -463,14 +463,14 @@ speech_page_connect (SpeechPage *page)
 
 
 
-/* "Add voices…" ends the voice list of a synthesizer whose voices can be
- * downloaded; audio.cpp has its models behind "More Models…" instead */
+/* "Add voices…" ends the voice list of every synthesizer that has a voice
+ * list: the same for all of them. Models are a separate window, "More
+ * Models…" of the synthesizer list. */
 gboolean
 speech_page_can_add_voices (SpeechPage *page)
 {
   gchar    *module = speech_page_get_module (page);
-  gboolean  can = module != NULL && voice_installer_has_source (module)
-                  && !g_str_has_prefix (module, "audiocpp");
+  gboolean  can = module != NULL && *module != '\0';
 
   g_free (module);
   return can;
@@ -930,8 +930,22 @@ speech_page_add_voices (SpeechPage  *page,
   gchar     *module = speech_page_get_module (page);
 
   speech_page_restore_combo (page, combo);
-  voice_installer_show (GTK_IS_WINDOW (toplevel) ? GTK_WINDOW (toplevel) : NULL,
-                        module, language, speech_page_voices_changed, page);
+  /* audio.cpp: its models are not voices; the window of its voices comes
+   * with the voice sources of its models */
+  if (module == NULL || !voice_installer_has_source (module)
+      || g_str_has_prefix (module, "audiocpp"))
+    {
+      GtkWidget *dialog = gtk_message_dialog_new (GTK_IS_WINDOW (toplevel) ? GTK_WINDOW (toplevel) : NULL,
+                                                  GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                  GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE,
+                                                  "%s", _("This synthesizer has no voices to download yet."));
+
+      gtk_dialog_run (GTK_DIALOG (dialog));
+      gtk_widget_destroy (dialog);
+    }
+  else
+    voice_installer_show (GTK_IS_WINDOW (toplevel) ? GTK_WINDOW (toplevel) : NULL,
+                          module, language, speech_page_voices_changed, page);
   g_free (module);
   g_free (language);
 }

@@ -829,3 +829,7 @@ msgstr "das Archiv ist beschädigt oder wird nicht unterstützt (%s)"
 #~ "Auf der Grafikkarte braucht der Synthesizer wenig Prozessorzeit und "
 #~ "spricht auf den meisten Karten schneller. Der erste Start nach einer "
 #~ "Aktualisierung des Grafiktreibers dauert länger."
+
+#: src/speech-page.c
+msgid "This synthesizer has no voices to download yet."
+msgstr "Für diesen Synthesizer gibt es noch keine herunterladbaren Stimmen."
