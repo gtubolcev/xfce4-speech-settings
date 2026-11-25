@@ -461,16 +461,16 @@ msgstr "Kind, weiblich"
 
 #. TRANSLATORS: a voice named by its kind and number: "male 1"
 #: src/speech-page-voices.c:329
-#, fuzzy, c-format
+#, c-format
 msgctxt "voice name"
 msgid "male %s"
-msgstr "Weiblich 1"
+msgstr "männlich %s"
 
 #: src/speech-page-voices.c:330
-#, fuzzy, c-format
+#, c-format
 msgctxt "voice name"
 msgid "female %s"
-msgstr "Weiblich 1"
+msgstr "weiblich %s"
 
 #: src/speech-page-voices.c:598
 msgid "More Models…"
