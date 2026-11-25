@@ -350,7 +350,19 @@ speech_page_grid_add (GtkWidget   *grid,
   gtk_widget_set_halign (widget, GTK_IS_COMBO_BOX (widget)
                                  ? GTK_ALIGN_FILL : GTK_ALIGN_START);
   if (GTK_IS_COMBO_BOX (widget))
-    gtk_size_group_add_widget (combo_size_group, widget);
+    {
+      GList *cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (widget));
+      GList *l;
+
+      /* the widest entry must not stretch every list: a long name is cut
+       * with "…" (user, 2026-11-25: the lists were too wide) */
+      for (l = cells; l != NULL; l = l->next)
+        if (GTK_IS_CELL_RENDERER_TEXT (l->data))
+          g_object_set (l->data, "ellipsize", PANGO_ELLIPSIZE_END,
+                        "max-width-chars", 32, NULL);
+      g_list_free (cells);
+      gtk_size_group_add_widget (combo_size_group, widget);
+    }
   gtk_grid_attach (GTK_GRID (grid), widget, 1, row, 1, 1);
 }
 
