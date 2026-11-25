@@ -304,6 +304,34 @@ speech_page_voice_model (const gchar *module,
 
 /* The speaker part of a voice name, for the list under its model:
  * "irina" for "piper-ru-irina", "bf_emma" for "kokoro-en-gb-bf_emma" */
+/* Voices named by their kind ("male-1", "female-2", Supertonic) in the
+ * user's language; other names are names */
+static gchar *
+speech_page_translate_voice (const gchar *name)
+{
+  const gchar *number = NULL;
+  gboolean     male = FALSE;
+
+  if (g_str_has_prefix (name, "male-"))
+    {
+      male = TRUE;
+      number = name + 5;
+    }
+  else if (g_str_has_prefix (name, "female-"))
+    {
+      male = FALSE;
+      number = name + 7;
+    }
+  if (number == NULL || *number == '\0' || strspn (number, "0123456789") != strlen (number))
+    return g_strdup (name);
+
+  /* TRANSLATORS: a voice named by its kind and number: "male 1" */
+  return male ? g_strdup_printf (C_("voice name", "male %s"), number)
+              : g_strdup_printf (C_("voice name", "female %s"), number);
+}
+
+
+
 static gchar *
 speech_page_voice_label (const gchar *module,
                          SPDVoice    *voice)
@@ -315,7 +343,7 @@ speech_page_voice_label (const gchar *module,
   gsize        k;
 
   if (g_ascii_strncasecmp (rest, model, len) != 0 || rest[len] != '-')
-    return g_strdup (voice->name);
+    return speech_page_translate_voice (voice->name);
   rest += len + 1;
 
   /* the language, "en-gb" for "en-GB" */
@@ -330,7 +358,7 @@ speech_page_voice_label (const gchar *module,
   if (*rest == '\0' || g_ascii_strcasecmp (rest, language) == 0)
     rest = voice->name;
 
-  return g_strdup (rest);
+  return speech_page_translate_voice (rest);
 }
 
 static const gchar *
