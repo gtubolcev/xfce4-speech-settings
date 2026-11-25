@@ -38,6 +38,7 @@
 #include <speech-dispatcher/libspeechd.h>
 
 #include "speech-page-private.h"
+#include "voice-installer.h"
 
 /* "SherpaPreload" for "sherpa-onnx" and "sherpa-onnx-vulkan-rs" */
 gchar *
@@ -593,10 +594,146 @@ speech_page_sync_copy (SpeechPage *page)
   g_free (module);
 }
 
+/* "TextStressHomographs" of our modules: the stress of Russian homographs
+ * from the context, by rules or with a RUAccent model of
+ * ~/.local/share/linux-tts/ruaccent/<size> (voice_source_ruaccent) */
+#define HOMOGRAPHS_KEY "TextStressHomographs"
+
+static const struct
+{
+  const gchar *id;
+  const gchar *label;
+  const gchar *tip;
+} homograph_modes[] =
+{
+  { "none", N_("Most frequent reading"),
+    N_("A homograph gets its most frequent stress: за́мок, все.") },
+  { "rules", N_("Rules"),
+    N_("Rules read the neighbouring words: висячий замо́к, у реки́. No download.") },
+  { "tiny", N_("Rules and small model"),
+    N_("The rules, then the small RUAccent model for the other homographs "
+       "and for ё (все/всё): about 55 MB, fast.") },
+  { "turbo", N_("Rules and large model"),
+    N_("The rules, then the large RUAccent model: about 380 MB, a little more "
+       "accurate, slower.") },
+};
+
+static gboolean
+homograph_model_installed (const gchar *size)
+{
+  gchar   *path = g_build_filename (g_get_user_data_dir (), "linux-tts", "ruaccent",
+                                    size, "model.onnx", NULL);
+  gboolean found = g_file_test (path, G_FILE_TEST_IS_REGULAR);
+
+  g_free (path);
+  return found;
+}
+
+static void
+speech_page_sync_homographs (SpeechPage *page)
+{
+  gchar   *module, *language, *value = NULL;
+  gboolean supported = FALSE;
+  gboolean updating = page->updating;
+  guint    i, active = 0;
+
+  if (page->homographs_combo == NULL)
+    return;
+  module = speech_page_get_module (page);
+  /* only for Russian, though the setting belongs to the synthesizer */
+  language = speech_page_get_language (page);
+  if (module != NULL && *module != '\0' && language != NULL
+      && (strcmp (language, "ru") == 0 || g_str_has_prefix (language, "ru-")
+          || g_str_has_prefix (language, "ru_")))
+    supported = speechd_module_has_option (module, HOMOGRAPHS_KEY);
+  if (supported)
+    value = speechd_module_get_option (module, HOMOGRAPHS_KEY);
+
+  page->updating = TRUE;
+  gtk_combo_box_text_remove_all (GTK_COMBO_BOX_TEXT (page->homographs_combo));
+  for (i = 0; i < G_N_ELEMENTS (homograph_modes); i++)
+    {
+      const gchar *id = homograph_modes[i].id;
+      gchar       *text;
+
+      if (i >= 2 && !homograph_model_installed (id))
+        /* TRANSLATORS: a choice whose model is not downloaded yet */
+        text = g_strdup_printf (_("%s (not installed)"), _(homograph_modes[i].label));
+      else
+        text = g_strdup (_(homograph_modes[i].label));
+      gtk_combo_box_text_append (GTK_COMBO_BOX_TEXT (page->homographs_combo), id, text);
+      g_free (text);
+      if (value != NULL && g_ascii_strcasecmp (value, id) == 0)
+        active = i;
+    }
+  gtk_combo_box_set_active (GTK_COMBO_BOX (page->homographs_combo), active);
+  gtk_widget_set_tooltip_text (page->homographs_combo, _(homograph_modes[active].tip));
+  gtk_widget_set_visible (page->homographs_label, supported);
+  gtk_widget_set_visible (page->homographs_combo, supported);
+  gtk_widget_set_visible (page->homographs_button,
+                          supported && voice_installer_has_source ("ruaccent"));
+  page->updating = updating;
+  g_free (value);
+  g_free (language);
+  g_free (module);
+}
+
+static void
+speech_page_homograph_models_changed (gpointer data)
+{
+  speech_page_sync_homographs (data);
+}
+
+static void
+speech_page_show_homograph_models (SpeechPage *page)
+{
+  GtkWidget *toplevel = gtk_widget_get_toplevel (page->homographs_combo);
+
+  voice_installer_show (GTK_IS_WINDOW (toplevel) ? GTK_WINDOW (toplevel) : NULL,
+                        "ruaccent", "ru", speech_page_homograph_models_changed, page);
+}
+
+void
+speech_page_homographs_models (GtkButton  *button,
+                               SpeechPage *page)
+{
+  speech_page_show_homograph_models (page);
+}
+
+void
+speech_page_homographs_changed (GtkComboBox *combo,
+                                SpeechPage  *page)
+{
+  const gchar *id = gtk_combo_box_get_active_id (combo);
+  gchar       *module;
+  guint        i;
+
+  if (page->updating || id == NULL)
+    return;
+  module = speech_page_get_module (page);
+  if (module == NULL || *module == '\0')
+    {
+      g_free (module);
+      return;
+    }
+  for (i = 0; i < G_N_ELEMENTS (homograph_modes); i++)
+    if (strcmp (homograph_modes[i].id, id) == 0)
+      gtk_widget_set_tooltip_text (GTK_WIDGET (combo), _(homograph_modes[i].tip));
+  /* "none" is the default: no line */
+  speech_page_set_module_option (page, module, HOMOGRAPHS_KEY,
+                                 strcmp (id, "none") == 0 ? NULL : id);
+  /* until the model is there the module uses the rules alone */
+  if ((strcmp (id, "tiny") == 0 || strcmp (id, "turbo") == 0)
+      && !homograph_model_installed (id) && voice_installer_has_source ("ruaccent"))
+    speech_page_show_homograph_models (page);
+  g_free (module);
+}
+
 void
 speech_page_sync_text_options (SpeechPage *page)
 {
   speech_page_sync_copy (page);
+  speech_page_sync_homographs (page);
 }
 
 /* The directory of the field, as the module takes it: absolute or ~/...;

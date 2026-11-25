@@ -95,6 +95,10 @@ typedef struct
   GtkWidget     *copy_check;        /* AudioCopyDir of the synthesizer */
   GtkWidget     *copy_box;          /* the directory, shown when on */
   GtkWidget     *copy_entry;
+  /* TextStressHomographs of the synthesizer, and the RUAccent models */
+  GtkWidget     *homographs_label;
+  GtkWidget     *homographs_combo;
+  GtkWidget     *homographs_button;
   GtkWidget     *test_view;     /* GtkTextView, grows with its text */
   GtkWidget     *test_grid;
   /* the sentence put into test_view for a language, while the user keeps it */
@@ -184,6 +188,10 @@ void speech_page_sync_preload_full (SpeechPage *page,
                                     gboolean    follow_voice);
 void speech_page_sync_preload (SpeechPage *page);
 void speech_page_sync_text_options (SpeechPage *page);
+void speech_page_homographs_changed (GtkComboBox *combo,
+                                     SpeechPage  *page);
+void speech_page_homographs_models (GtkButton  *button,
+                                    SpeechPage *page);
 void speech_page_copy_toggled (GtkToggleButton *button,
                                SpeechPage      *page);
 void speech_page_copy_entry_activate (GtkEntry   *entry,

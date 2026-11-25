@@ -26,6 +26,11 @@
  * which has the list (with every file pinned by its SHA-256), downloads,
  * converts and checks; it prints its progress as one JSON object a line.
  * Here it is only run: "list" for the catalogue, "install ID", "remove ID".
+ *
+ * The same helper with another catalogue, as ruaccent-models.py of
+ * speech-dispatcher-text-normalizer, installs the RUAccent homograph models
+ * (MIT) into ~/.local/share/linux-tts/ruaccent: voice_source_ruaccent, for
+ * "TextStressHomographs tiny|turbo" of the modules.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -46,6 +51,9 @@
 
 #define HELPER "/usr/share/speech-dispatcher-audiocpp/audiocpp-models.py"
 #define SYSTEM_DIR "/usr/share/audiocpp-tts"
+#ifndef RUACCENT_HELPER   /* -D for tests */
+#define RUACCENT_HELPER "/usr/share/linux-tts/ruaccent/ruaccent-models.py"
+#endif
 #define LINE_MAX_SIZE 4096
 
 typedef struct
@@ -71,29 +79,66 @@ typedef struct
 
 
 
-/* the helper; AUDIOCPP_MODELS_HELPER for a test with the source tree */
-static const gchar *
-acpp_helper (void)
+/* what differs between the two catalogues */
+typedef struct
 {
-  const gchar *path = g_getenv ("AUDIOCPP_MODELS_HELPER");
+  const gchar *helper;
+  const gchar *helper_env;   /* for a test with the source tree */
+  const gchar *user_dir;     /* under ~/.local/share */
+  const gchar *system_dir;   /* NULL: none */
+  const gchar *marker;       /* the file that makes a model directory */
+} AcppKind;
 
-  return path != NULL && *path != '\0' ? path : HELPER;
+static const AcppKind kind_audiocpp =
+{
+  HELPER, "AUDIOCPP_MODELS_HELPER", "audiocpp-tts", SYSTEM_DIR, "audiocpp.ini"
+};
+
+static const AcppKind kind_ruaccent =
+{
+  RUACCENT_HELPER, "RUACCENT_MODELS_HELPER", "linux-tts/ruaccent", NULL, "model.onnx"
+};
+
+static const AcppKind *
+acpp_kind (Installer *in)
+{
+  return in->source == &voice_source_ruaccent ? &kind_ruaccent : &kind_audiocpp;
+}
+
+static const gchar *
+acpp_helper (const AcppKind *k)
+{
+  const gchar *path = g_getenv (k->helper_env);
+
+  return path != NULL && *path != '\0' ? path : k->helper;
+}
+
+static gchar **
+acpp_catalogue_argv (const AcppKind *k)
+{
+  gchar *argv[] = { "python3", "-I", (gchar *) acpp_helper (k), "list", NULL };
+
+  if (!g_file_test (acpp_helper (k), G_FILE_TEST_IS_REGULAR))
+    return NULL;
+  return g_strdupv (argv);
 }
 
 static gchar **
 acpp_catalogue_command (void)
 {
-  gchar *argv[] = { "python3", "-I", (gchar *) acpp_helper (), "list", NULL };
+  return acpp_catalogue_argv (&kind_audiocpp);
+}
 
-  if (!g_file_test (acpp_helper (), G_FILE_TEST_IS_REGULAR))
-    return NULL;
-  return g_strdupv (argv);
+static gchar **
+ruaccent_catalogue_command (void)
+{
+  return acpp_catalogue_argv (&kind_ruaccent);
 }
 
 static gchar *
-acpp_user_dir (void)
+acpp_user_dir (const AcppKind *k)
 {
-  return g_build_filename (g_get_user_data_dir (), "audiocpp-tts", NULL);
+  return g_build_filename (g_get_user_data_dir (), k->user_dir, NULL);
 }
 
 static void
@@ -206,17 +251,19 @@ static VoiceState
 acpp_state (Installer *in,
             gpointer   data)
 {
-  AcppModel  *model = data;
-  gchar      *user_dir = acpp_user_dir ();
-  gchar      *ini = g_build_filename (user_dir, model->id, "audiocpp.ini", NULL);
-  gchar      *source = g_build_filename (user_dir, model->id, "SOURCE", NULL);
-  gchar      *system_ini = g_build_filename (SYSTEM_DIR, model->id, "audiocpp.ini", NULL);
-  VoiceState  state = STATE_NONE;
+  AcppModel      *model = data;
+  const AcppKind *k = acpp_kind (in);
+  gchar          *user_dir = acpp_user_dir (k);
+  gchar          *ini = g_build_filename (user_dir, model->id, k->marker, NULL);
+  gchar          *source = g_build_filename (user_dir, model->id, "SOURCE", NULL);
+  gchar          *system_ini = k->system_dir != NULL
+                               ? g_build_filename (k->system_dir, model->id, k->marker, NULL) : NULL;
+  VoiceState      state = STATE_NONE;
 
   if (g_file_test (ini, G_FILE_TEST_IS_REGULAR))
     /* one put there by hand is not removed here */
     state = g_file_test (source, G_FILE_TEST_IS_REGULAR) ? STATE_USER : STATE_SYSTEM;
-  else if (g_file_test (system_ini, G_FILE_TEST_IS_REGULAR))
+  else if (system_ini != NULL && g_file_test (system_ini, G_FILE_TEST_IS_REGULAR))
     state = STATE_SYSTEM;
 
   g_free (system_ini);
@@ -437,7 +484,7 @@ acpp_install (Installer *in,
   job->model = model;
   job->process = g_subprocess_new (G_SUBPROCESS_FLAGS_STDOUT_PIPE
                                    | G_SUBPROCESS_FLAGS_STDERR_SILENCE, &error,
-                                   "python3", "-I", acpp_helper (), "install",
+                                   "python3", "-I", acpp_helper (acpp_kind (in)), "install",
                                    model->id, NULL);
   if (job->process == NULL)
     {
@@ -461,7 +508,7 @@ acpp_remove (Installer *in,
              GError   **error)
 {
   AcppModel *model = data;
-  gchar     *argv[] = { "python3", "-I", (gchar *) acpp_helper (), "remove",
+  gchar     *argv[] = { "python3", "-I", (gchar *) acpp_helper (acpp_kind (in)), "remove",
                         model->id, NULL };
   gchar     *out = NULL;
   gint       status = 0;
@@ -507,6 +554,29 @@ const VoiceSource voice_source_audiocpp =
                            "authors' page, checked and converted on this "
                            "computer."),
   .catalogue_command  = acpp_catalogue_command,
+  .free_voice         = acpp_free_voice,
+  .load               = acpp_load,
+  .state              = acpp_state,
+  .install            = acpp_install,
+  .remove             = acpp_remove,
+  .licence            = acpp_licence,
+};
+
+const VoiceSource voice_source_ruaccent =
+{
+  /* not a module: the models of TextStressHomographs, for every module */
+  .module             = "ruaccent",
+  .module_path        = RUACCENT_HELPER,
+  .title              = N_("Models for Russian homographs"),
+  .install_tooltip    = N_("Download the model from Hugging Face and install it for you"),
+  .quality_title      = N_("Licence"),
+  .note               = N_("RUAccent models (MIT licence) choose the stress of "
+                           "Russian homographs from the sentence: за́мок or "
+                           "замо́к, все or всё. The small one is fast enough "
+                           "for any computer, the large one is a little more "
+                           "accurate. They are downloaded from their authors' "
+                           "page and checked."),
+  .catalogue_command  = ruaccent_catalogue_command,
   .free_voice         = acpp_free_voice,
   .load               = acpp_load,
   .state              = acpp_state,
