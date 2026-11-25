@@ -10,6 +10,7 @@ test('config', test_config)
 test_voice_installer = executable(
   'test-voice-installer',
   'test-voice-installer.c',
+  '../src/lang-names.c',
   '../src/voice-installer.c',
   '../src/voice-packagekit.c',
   '../src/voice-source-audiocpp.c',
