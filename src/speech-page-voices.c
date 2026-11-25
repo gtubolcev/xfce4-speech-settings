@@ -36,6 +36,8 @@
 #endif
 #include <speech-dispatcher/libspeechd.h>
 
+#include "lang-names.h"
+
 #include "speech-page-private.h"
 #include "voice-installer.h"
 
@@ -746,17 +748,115 @@ speech_page_compare_strings (gconstpointer a,
 
 
 
-/* Offers the languages of all modules */
+/* The name shown for a language code, in the language of the session:
+ * "Deutsch" for "de"; the code itself when iso-codes does not know it */
+static gchar *
+speech_page_language_label (const gchar *code)
+{
+  return lang_names_label (code, NULL, code);
+}
+
+
+
+static gint
+speech_page_compare_labels (gconstpointer a,
+                            gconstpointer b,
+                            gpointer      labels)
+{
+  return g_utf8_collate (g_hash_table_lookup (labels, *(const gchar **) a),
+                         g_hash_table_lookup (labels, *(const gchar **) b));
+}
+
+
+
+/* Offers the languages of all modules by name, sorted by name; the codes
+ * are the ids */
 void
 speech_page_fill_languages (SpeechPage *page)
 {
   GtkComboBoxText *combo = GTK_COMBO_BOX_TEXT (page->language_combo);
+  GHashTable      *labels;
+  GPtrArray       *codes;
   guint            i;
 
-  gtk_combo_box_text_remove_all (combo);
+  labels = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, g_free);
+  codes = g_ptr_array_new ();
   for (i = 0; i < page->languages->len; i++)
-    gtk_combo_box_text_append_text (combo,
-                                    g_ptr_array_index (page->languages, i));
+    {
+      const gchar *code = g_ptr_array_index (page->languages, i);
+
+      g_hash_table_insert (labels, (gpointer) code,
+                           speech_page_language_label (code));
+      g_ptr_array_add (codes, (gpointer) code);
+    }
+  g_ptr_array_sort_with_data (codes, speech_page_compare_labels, labels);
+
+  gtk_combo_box_text_remove_all (combo);
+  for (i = 0; i < codes->len; i++)
+    gtk_combo_box_text_append (combo, g_ptr_array_index (codes, i),
+                               g_hash_table_lookup (labels,
+                                                    g_ptr_array_index (codes, i)));
+  g_ptr_array_free (codes, TRUE);
+  g_hash_table_destroy (labels);
+}
+
+
+
+/* Shows the language of a code in the entry: its name, or the code when
+ * the name is not known (or the code is not one) */
+void
+speech_page_set_language_text (SpeechPage  *page,
+                               const gchar *code)
+{
+  GtkWidget *entry = gtk_bin_get_child (GTK_BIN (page->language_combo));
+  gchar     *label = NULL;
+
+  if (code != NULL && *code != '\0' && speech_page_is_language_code (code))
+    label = speech_page_language_label (code);
+  gtk_entry_set_text (GTK_ENTRY (entry),
+                      label != NULL ? label : (code != NULL ? code : ""));
+  g_free (label);
+}
+
+
+
+/* The code of the language in the entry, "" for an empty one: the chosen
+ * item, a typed name of a listed language ("deutsch", any case), else the
+ * typed text, a code like "pt-BR" (or a mistyped one) */
+gchar *
+speech_page_entry_language (SpeechPage *page)
+{
+  GtkWidget   *entry = gtk_bin_get_child (GTK_BIN (page->language_combo));
+  const gchar *id = gtk_combo_box_get_active_id (GTK_COMBO_BOX (page->language_combo));
+  gchar       *text;
+  gchar       *folded;
+  guint        i;
+
+  if (id != NULL)
+    return g_strdup (id);
+
+  text = g_strstrip (g_strdup (gtk_entry_get_text (GTK_ENTRY (entry))));
+  if (*text == '\0')
+    return text;
+  folded = g_utf8_casefold (text, -1);
+  for (i = 0; i < page->languages->len; i++)
+    {
+      const gchar *code = g_ptr_array_index (page->languages, i);
+      gchar       *label = speech_page_language_label (code);
+      gchar       *label_folded = g_utf8_casefold (label, -1);
+      gboolean     same = g_strcmp0 (folded, label_folded) == 0;
+
+      g_free (label_folded);
+      g_free (label);
+      if (same)
+        {
+          g_free (folded);
+          g_free (text);
+          return g_strdup (code);
+        }
+    }
+  g_free (folded);
+  return text;
 }
 
 
@@ -1043,13 +1143,14 @@ speech_page_get_module (SpeechPage *page)
 gchar *
 speech_page_get_language (SpeechPage *page)
 {
-  GtkWidget   *entry = gtk_bin_get_child (GTK_BIN (page->language_combo));
-  const gchar *language = gtk_entry_get_text (GTK_ENTRY (entry));
+  gchar *language = speech_page_entry_language (page);
 
-  if (language == NULL || *language == '\0')
-    language = DEFAULT_LANGUAGE;
-
-  return g_strstrip (g_strdup (language));
+  if (*language == '\0')
+    {
+      g_free (language);
+      language = g_strdup (DEFAULT_LANGUAGE);
+    }
+  return language;
 }
 
 
@@ -1258,11 +1359,10 @@ speech_page_refill_modules (gpointer data)
   speech_page_load_voices (page);
   {
     /* the voices of the new connection; refilling must not clear the language */
-    GtkWidget *entry = gtk_bin_get_child (GTK_BIN (page->language_combo));
-    gchar     *language = g_strdup (gtk_entry_get_text (GTK_ENTRY (entry)));
+    gchar *language = speech_page_entry_language (page);
 
     speech_page_fill_languages (page);
-    gtk_entry_set_text (GTK_ENTRY (entry), language);
+    speech_page_set_language_text (page, language);
     g_free (language);
   }
   page->updating = FALSE;

@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: xfce4-speech-settings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-25 16:46+0100\n"
+"POT-Creation-Date: 2026-11-25 17:16+0100\n"
 "PO-Revision-Date: 2026-11-22 13:40+0100\n"
 "Last-Translator: Grigory Tuboltsev\n"
 "Language-Team: German\n"
@@ -97,7 +97,7 @@ msgstr "Einen Ton abspielen"
 msgid "Automatic"
 msgstr "Automatisch"
 
-#: src/speech-page.c:177 src/speech-page.c:1040
+#: src/speech-page.c:177 src/speech-page.c:1037
 #, c-format
 msgid "Failed to apply the settings: %s"
 msgstr "Die Einstellungen konnten nicht übernommen werden: %s"
@@ -120,24 +120,24 @@ msgstr "unbekannter Fehler"
 msgid "Failed to save the voice: %s"
 msgstr "Die Stimme konnte nicht gespeichert werden: %s"
 
-#: src/speech-page.c:954
+#: src/speech-page.c:951
 msgid "This synthesizer has no voices to download yet."
 msgstr "Für diesen Synthesizer gibt es noch keine herunterladbaren Stimmen."
 
-#: src/speech-page.c:1116
+#: src/speech-page.c:1111
 msgid "Speech Dispatcher did not accept the text."
 msgstr "Speech Dispatcher hat den Text nicht angenommen."
 
-#: src/speech-page.c:1414
+#: src/speech-page.c:1409
 #, c-format
 msgid "Failed to read the settings: %s"
 msgstr "Die Einstellungen konnten nicht gelesen werden: %s"
 
-#: src/speech-page.c:1430
+#: src/speech-page.c:1425
 msgid "_Use All"
 msgstr "Alle _verwenden"
 
-#: src/speech-page.c:1434
+#: src/speech-page.c:1429
 msgid ""
 "Your settings list the synthesizers to load, so synthesizers installed later "
 "are not offered. Use all installed synthesizers?"
@@ -146,24 +146,21 @@ msgstr ""
 "installierte Synthesizer werden daher nicht angeboten. Alle installierten "
 "Synthesizer verwenden?"
 
-#. Voice
-#: src/speech-page.c:1454 src/voice-installer.c:1368
+#: src/speech-page.c:1449 src/voice-installer.c:1368
 msgid "Voice"
 msgstr "Stimme"
 
-#: src/speech-page.c:1465
+#: src/speech-page.c:1460
 msgid ""
-"Language code like “en-US” or “ru”. Most applications set the language "
-"themselves."
-msgstr ""
-"Sprachcode wie „de“ oder „en-US“. Die meisten Anwendungen legen die Sprache "
-"selbst fest."
+"A language from the list, or a code like “en-US” or “pt-BR”. Most "
+"applications set the language themselves."
+msgstr "Eine Sprache aus der Liste oder ein Code wie „en-US“ oder „pt-BR“. Die meisten Anwendungen legen die Sprache selbst fest."
 
-#: src/speech-page.c:1467 src/voice-installer.c:1342
+#: src/speech-page.c:1463 src/voice-installer.c:1342
 msgid "_Language:"
 msgstr "_Sprache:"
 
-#: src/speech-page.c:1491
+#: src/speech-page.c:1487
 msgid ""
 "The speech synthesizer used when an application does not ask for another "
 "one. Only the ones with a voice for the language are offered."
@@ -171,11 +168,11 @@ msgstr ""
 "Der Sprachsynthesizer, der verwendet wird, wenn eine Anwendung keinen "
 "anderen verlangt. Angeboten werden nur die mit einer Stimme für die Sprache."
 
-#: src/speech-page.c:1495
+#: src/speech-page.c:1491
 msgid "_Synthesizer:"
 msgstr "S_ynthesizer:"
 
-#: src/speech-page.c:1500
+#: src/speech-page.c:1496
 msgid ""
 "The speech dispatcher module that runs the synthesizer, and the runtime it "
 "uses. A choice when more than one can run it."
@@ -183,13 +180,13 @@ msgstr ""
 "Das Speech-Dispatcher-Modul, das den Synthesizer ausführt, und die "
 "Laufzeitumgebung, die es nutzt. Wählbar, wenn mehrere ihn ausführen können."
 
-#: src/speech-page.c:1503
+#: src/speech-page.c:1499
 msgid "_Engine:"
 msgstr "Mod_ul:"
 
 #. TRANSLATORS: first start of the dialog; %s are the synthesizer
 #. * and the name of the language (from iso-codes, "German")
-#: src/speech-page.c:1522
+#: src/speech-page.c:1518
 #, c-format
 msgid ""
 "Speech now uses the synthesizer %s for the language %s. Its voice is kept "
@@ -200,23 +197,23 @@ msgstr ""
 "Seine Stimme bleibt geladen, damit die Ausgabe sofort beginnt. Andere "
 "Synthesizer und Stimmen können unten gewählt werden."
 
-#: src/speech-page.c:1558
+#: src/speech-page.c:1554
 msgid "_Voice:"
 msgstr "S_timme:"
 
-#: src/speech-page.c:1565
+#: src/speech-page.c:1561
 msgid "The synthesizer maps these types to its own voices"
 msgstr "Der Synthesizer ordnet diese Typen seinen eigenen Stimmen zu"
 
-#: src/speech-page.c:1567
+#: src/speech-page.c:1563
 msgid "Voice _type:"
 msgstr "Stimmty_p:"
 
-#: src/speech-page.c:1577
+#: src/speech-page.c:1573
 msgid "_Keep the synthesizer loaded"
 msgstr "Synthesizer geladen _halten"
 
-#: src/speech-page.c:1579
+#: src/speech-page.c:1575
 msgid ""
 "Load the synthesizer when the speech server starts and keep it in memory: "
 "the first message is spoken sooner. Otherwise it is loaded when chosen here "
@@ -228,77 +225,76 @@ msgstr ""
 "Sprachausgabe freigegeben."
 
 #. TRANSLATORS: the processor, left of the switch to the graphics card
-#: src/speech-page.c:1590
+#: src/speech-page.c:1586
 msgid "CPU"
 msgstr "Prozessor"
 
 #. TRANSLATORS: the graphics card, right of the switch
-#: src/speech-page.c:1596
+#: src/speech-page.c:1592
 msgid "_GPU"
 msgstr "_Grafikkarte"
 
-#: src/speech-page.c:1651
+#: src/speech-page.c:1647
 msgid "_Rate:"
 msgstr "Te_mpo:"
 
-#: src/speech-page.c:1652
+#: src/speech-page.c:1648
 msgid "Slower"
 msgstr "Langsamer"
 
-#: src/speech-page.c:1652
+#: src/speech-page.c:1648
 msgid "Faster"
 msgstr "Schneller"
 
-#: src/speech-page.c:1654
+#: src/speech-page.c:1650
 msgid "_Pitch:"
 msgstr "Ton_höhe:"
 
-#: src/speech-page.c:1655
+#: src/speech-page.c:1651
 msgid "Lower"
 msgstr "Tiefer"
 
-#: src/speech-page.c:1655
+#: src/speech-page.c:1651
 msgid "Higher"
 msgstr "Höher"
 
-#: src/speech-page.c:1657
+#: src/speech-page.c:1653
 msgid "_Volume:"
 msgstr "_Lautstärke:"
 
-#: src/speech-page.c:1658
+#: src/speech-page.c:1654
 msgid "Quieter"
 msgstr "Leiser"
 
-#: src/speech-page.c:1658
+#: src/speech-page.c:1654
 msgid "Louder"
 msgstr "Lauter"
 
-#. Reading
-#: src/speech-page.c:1661
+#: src/speech-page.c:1657
 msgid "Reading"
 msgstr "Vorlesen"
 
-#: src/speech-page.c:1665
+#: src/speech-page.c:1661
 msgid "P_unctuation:"
 msgstr "Satz_zeichen:"
 
-#: src/speech-page.c:1672
+#: src/speech-page.c:1668
 msgid "_Capital letters:"
 msgstr "Groß_buchstaben:"
 
-#: src/speech-page.c:1680
+#: src/speech-page.c:1676
 msgid "_Output:"
 msgstr "_Ausgabe:"
 
-#: src/speech-page.c:1686
+#: src/speech-page.c:1682
 msgid "Russian _homographs:"
 msgstr "Russische _Homographen:"
 
-#: src/speech-page.c:1702
+#: src/speech-page.c:1698
 msgid "Save a cop_y of the speech to files"
 msgstr "Eine _Kopie der Sprachausgabe in Dateien speichern"
 
-#: src/speech-page.c:1704
+#: src/speech-page.c:1700
 msgid ""
 "For debugging: while it speaks, the selected synthesizer also writes each "
 "message to output1.wav, output2.wav and so on in the folder below, and the "
@@ -309,7 +305,7 @@ msgstr ""
 "den Text, den die Stimme bekam (nach Zahlen und Betonung), nach output1.txt "
 "usw."
 
-#: src/speech-page.c:1723
+#: src/speech-page.c:1719
 msgid ""
 "A full path or ~/...; the folder is created when needed. Enter or leaving "
 "the field saves it."
@@ -317,20 +313,19 @@ msgstr ""
 "Ein vollständiger Pfad oder ~/...; der Ordner wird bei Bedarf angelegt. "
 "Gespeichert wird mit Enter oder beim Verlassen des Feldes."
 
-#: src/speech-page.c:1726
+#: src/speech-page.c:1722
 msgid "_Browse…"
 msgstr "_Durchsuchen…"
 
-#. Test
-#: src/speech-page.c:1740
+#: src/speech-page.c:1736
 msgid "Test"
 msgstr "Test"
 
-#: src/speech-page.c:1755 src/speech-page.c:1757
+#: src/speech-page.c:1751 src/speech-page.c:1753
 msgid "This is how your computer speaks."
 msgstr "So spricht Ihr Computer."
 
-#: src/speech-page.c:1762
+#: src/speech-page.c:1758
 msgid ""
 "Ctrl+Enter speaks the text. Most Russian voices take \"+\" before a vowel as "
 "its stress: зам+ок."
@@ -338,15 +333,15 @@ msgstr ""
 "Strg+Eingabe spricht den Text. Die meisten russischen Stimmen verstehen „+“ "
 "vor einem Vokal als Betonung: зам+ок."
 
-#: src/speech-page.c:1777
+#: src/speech-page.c:1773
 msgid "Te_xt:"
 msgstr "Te_xt:"
 
-#: src/speech-page.c:1798
+#: src/speech-page.c:1794
 msgid "_Speak"
 msgstr "Sp_rechen"
 
-#: src/speech-page.c:1805
+#: src/speech-page.c:1801
 msgid "S_top"
 msgstr "St_opp"
 
@@ -430,63 +425,63 @@ msgstr "_Auswählen"
 msgid "_Cancel"
 msgstr "_Abbrechen"
 
-#: src/speech-page-voices.c:50
+#: src/speech-page-voices.c:52
 msgid "Male 1"
 msgstr "Männlich 1"
 
-#: src/speech-page-voices.c:51
+#: src/speech-page-voices.c:53
 msgid "Male 2"
 msgstr "Männlich 2"
 
-#: src/speech-page-voices.c:52
+#: src/speech-page-voices.c:54
 msgid "Male 3"
 msgstr "Männlich 3"
 
-#: src/speech-page-voices.c:53
+#: src/speech-page-voices.c:55
 msgid "Female 1"
 msgstr "Weiblich 1"
 
-#: src/speech-page-voices.c:54
+#: src/speech-page-voices.c:56
 msgid "Female 2"
 msgstr "Weiblich 2"
 
-#: src/speech-page-voices.c:55
+#: src/speech-page-voices.c:57
 msgid "Female 3"
 msgstr "Weiblich 3"
 
-#: src/speech-page-voices.c:56
+#: src/speech-page-voices.c:58
 msgid "Child, male"
 msgstr "Kind, männlich"
 
-#: src/speech-page-voices.c:57
+#: src/speech-page-voices.c:59
 msgid "Child, female"
 msgstr "Kind, weiblich"
 
-#: src/speech-page-voices.c:568
+#: src/speech-page-voices.c:570
 msgid "More Models…"
 msgstr "Weitere Modelle…"
 
 #. TRANSLATORS: a synthesizer without a voice for the language
-#: src/speech-page-voices.c:705
+#: src/speech-page-voices.c:707
 #, c-format
 msgid "%s (no voice)"
 msgstr "%s (keine Stimme)"
 
-#: src/speech-page-voices.c:992
+#: src/speech-page-voices.c:1092
 msgid "This synthesizer runs on the processor only."
 msgstr "Dieser Synthesizer läuft nur auf dem Prozessor."
 
-#: src/speech-page-voices.c:994
+#: src/speech-page-voices.c:1094
 msgid "No graphics card was found."
 msgstr "Keine Grafikkarte gefunden."
 
-#: src/speech-page-voices.c:996
+#: src/speech-page-voices.c:1096
 msgid "On the graphics card this synthesizer has no voice for the language."
 msgstr ""
 "Auf der Grafikkarte hat dieser Synthesizer keine Stimme für die Sprache."
 
 #. TRANSLATORS: %s is the runtime, as "ONNX Runtime, Vulkan"
-#: src/speech-page-voices.c:1005
+#: src/speech-page-voices.c:1105
 #, c-format
 msgid ""
 "On the graphics card the synthesizer takes little processor time, and on "
@@ -499,19 +494,19 @@ msgstr ""
 "Grafiktreibers dauert länger.\n"
 "Läuft mit %s."
 
-#: src/speech-page-voices.c:1156
+#: src/speech-page-voices.c:1257
 msgid "Add voices…"
 msgstr "Stimmen hinzufügen…"
 
-#: src/speech-page-voices.c:1178
+#: src/speech-page-voices.c:1279
 msgid "The synthesizer has no voice for this language"
 msgstr "Der Synthesizer hat keine Stimme für diese Sprache"
 
-#: src/speech-page-voices.c:1182
+#: src/speech-page-voices.c:1283
 msgid "This synthesizer chooses its voice by the voice type"
 msgstr "Dieser Synthesizer wählt seine Stimme nach dem Stimmtyp"
 
-#: src/speech-page-voices.c:1186
+#: src/speech-page-voices.c:1287
 msgid "The voice for this language, kept in the synthesizer's settings"
 msgstr ""
 "Die Stimme für diese Sprache, gespeichert in den Einstellungen des "
@@ -589,7 +584,7 @@ msgid "Downloading…"
 msgstr "Wird heruntergeladen…"
 
 #: src/voice-installer.c:970 src/voice-installer.c:1038
-#: src/voice-source-audiocpp.c:485 src/voice-source-piper.c:783
+#: src/voice-source-audiocpp.c:512 src/voice-source-piper.c:783
 msgid "Connecting…"
 msgstr "Verbindung wird hergestellt…"
 
@@ -648,7 +643,7 @@ msgid "The list of models is damaged"
 msgstr "Die Modellliste ist beschädigt"
 
 #. TRANSLATORS: %s are the names of packages
-#: src/voice-source-audiocpp.c:280 src/voice-source-audiocpp.c:462
+#: src/voice-source-audiocpp.c:280 src/voice-source-audiocpp.c:489
 #, c-format
 msgid "needs the packages %s"
 msgstr "benötigt die Pakete %s"
@@ -662,35 +657,79 @@ msgstr "nicht angegeben"
 msgid "the installer stopped unexpectedly"
 msgstr "der Installer wurde unerwartet beendet"
 
-#. TRANSLATORS: "120 MB of 454 MB"
-#: src/voice-source-audiocpp.c:364
-#, c-format
-msgid "Downloading… %s of %s"
-msgstr "Herunterladen … %s von %s"
-
-#: src/voice-source-audiocpp.c:377
-msgid "Converting the model…"
-msgstr "Modell wird umgewandelt …"
-
-#: src/voice-source-audiocpp.c:382
-msgid "Checking…"
-msgstr "Prüfen …"
-
-#: src/voice-source-audiocpp.c:396
+#: src/voice-source-audiocpp.c:345
 #, c-format
 msgid "not enough free disk space (%s)"
 msgstr "nicht genug freier Speicherplatz (%s)"
 
-#: src/voice-source-audiocpp.c:400
+#: src/voice-source-audiocpp.c:347
 #, c-format
 msgid "a downloaded file is not the expected one (%s)"
 msgstr "eine heruntergeladene Datei ist nicht die erwartete (%s)"
 
-#: src/voice-source-audiocpp.c:531
+#: src/voice-source-audiocpp.c:349
+#, c-format
+msgid "the download failed (%s)"
+msgstr "der Download ist fehlgeschlagen (%s)"
+
+#: src/voice-source-audiocpp.c:351
+#, c-format
+msgid "the conversion of the model failed (%s)"
+msgstr "die Umwandlung des Modells ist fehlgeschlagen (%s)"
+
+#: src/voice-source-audiocpp.c:353
+#, c-format
+msgid "the list of models is damaged (%s)"
+msgstr "die Modellliste ist beschädigt (%s)"
+
+#: src/voice-source-audiocpp.c:355
+#, c-format
+msgid "the model is not in the list of models (%s)"
+msgstr "das Modell steht nicht in der Modellliste (%s)"
+
+#: src/voice-source-audiocpp.c:357
+#, c-format
+msgid "the model is being installed already (%s)"
+msgstr "das Modell wird bereits installiert (%s)"
+
+#: src/voice-source-audiocpp.c:359
+#, c-format
+msgid "its folder was not made by this program (%s)"
+msgstr "sein Ordner wurde nicht von diesem Programm angelegt (%s)"
+
+#: src/voice-source-audiocpp.c:361
+#, c-format
+msgid "packages are missing (%s)"
+msgstr "es fehlen Pakete (%s)"
+
+#: src/voice-source-audiocpp.c:363
+#, c-format
+msgid "a file could not be written (%s)"
+msgstr "eine Datei konnte nicht geschrieben werden (%s)"
+
+#: src/voice-source-audiocpp.c:365
+msgid "cancelled"
+msgstr "abgebrochen"
+
+#. TRANSLATORS: "120 MB of 454 MB"
+#: src/voice-source-audiocpp.c:401
+#, c-format
+msgid "Downloading… %s of %s"
+msgstr "Herunterladen … %s von %s"
+
+#: src/voice-source-audiocpp.c:414
+msgid "Converting the model…"
+msgstr "Modell wird umgewandelt …"
+
+#: src/voice-source-audiocpp.c:419
+msgid "Checking…"
+msgstr "Prüfen …"
+
+#: src/voice-source-audiocpp.c:562
 msgid "Models for audio.cpp"
 msgstr "Modelle für audio.cpp"
 
-#: src/voice-source-audiocpp.c:532
+#: src/voice-source-audiocpp.c:563
 msgid ""
 "Download the model from Hugging Face, convert it for audio.cpp and install "
 "it for you"
@@ -698,11 +737,11 @@ msgstr ""
 "Das Modell von Hugging Face herunterladen, für audio.cpp umwandeln und "
 "installieren"
 
-#: src/voice-source-audiocpp.c:534
+#: src/voice-source-audiocpp.c:565
 msgid "Licence"
 msgstr "Lizenz"
 
-#: src/voice-source-audiocpp.c:535
+#: src/voice-source-audiocpp.c:566
 msgid ""
 "These synthesizers are not in the packages: their licences (OpenRAIL) allow "
 "free use but forbid some uses, such as harming people, impersonating them or "

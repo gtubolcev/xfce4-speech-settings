@@ -795,14 +795,11 @@ static void
 speech_page_language_changed (GtkComboBox *combo,
                               SpeechPage  *page)
 {
-  GtkWidget *entry = gtk_bin_get_child (GTK_BIN (combo));
-
   if (page->updating)
     return;
 
   g_free (page->typed_language);
-  page->typed_language =
-    g_strstrip (g_strdup (gtk_entry_get_text (GTK_ENTRY (entry))));
+  page->typed_language = speech_page_entry_language (page);
 
   if (page->language_id != 0)
     g_source_remove (page->language_id);
@@ -1062,9 +1059,8 @@ speech_page_test_clicked (GtkButton  *button,
                           SpeechPage *page)
 {
   const gchar *module;
-  const gchar *language;
+  gchar       *language;
   gchar       *text;
-  GtkWidget   *entry;
   gint         i;
 
   if (!speech_page_connect (page))
@@ -1073,10 +1069,9 @@ speech_page_test_clicked (GtkButton  *button,
   /* the language first: speechd's SET LANGUAGE switches the connection to
    * the LanguageDefaultModule it read at its last start, which would
    * override the module chosen here */
-  entry = gtk_bin_get_child (GTK_BIN (page->language_combo));
-  language = gtk_entry_get_text (GTK_ENTRY (entry));
-  spd_set_language (page->connection,
-                    *language != '\0' ? language : DEFAULT_LANGUAGE);
+  language = speech_page_get_language (page);
+  spd_set_language (page->connection, language);
+  g_free (language);
 
   module = gtk_combo_box_get_active_id (GTK_COMBO_BOX (page->module_combo));
   if (module != NULL && *module != '\0')
@@ -1462,8 +1457,9 @@ speech_page_new (void)
   entry = gtk_bin_get_child (GTK_BIN (page->language_combo));
   gtk_entry_set_placeholder_text (GTK_ENTRY (entry), DEFAULT_LANGUAGE);
   gtk_widget_set_tooltip_text (page->language_combo,
-                               _("Language code like “en-US” or “ru”. Most "
-                                 "applications set the language themselves."));
+                               _("A language from the list, or a code like "
+                                 "“en-US” or “pt-BR”. Most applications set "
+                                 "the language themselves."));
   speech_page_grid_add (grid, 0, _("_Language:"), page->language_combo);
   speech_page_fill_languages (page);
   /* First start (no speechd.conf of the user yet): speechd would read
@@ -1481,7 +1477,7 @@ speech_page_new (void)
       if (value != NULL)
         speechd_config_set (page->config, "DefaultLanguage", value);
     }
-  gtk_entry_set_text (GTK_ENTRY (entry), value != NULL ? value : "");
+  speech_page_set_language_text (page, value);
   g_free (value);
 
   /* the synthesizer (the model: Piper, Kokoro...), then its voice, then

@@ -94,6 +94,8 @@ lang_names_table (const gchar *file,
 
 
 
+static gsize codeset_set = 0;
+
 static gchar *
 lang_names_lookup (GHashTable  *table,
                    const gchar *domain,
@@ -111,6 +113,13 @@ lang_names_lookup (GHashTable  *table,
   g_free (key);
   if (name == NULL)
     return g_strdup (fallback != NULL ? fallback : code);
+  /* GTK wants UTF-8 whatever the codeset of the session's locale */
+  if (g_once_init_enter (&codeset_set))
+    {
+      bind_textdomain_codeset ("iso_639-3", "UTF-8");
+      bind_textdomain_codeset ("iso_3166-1", "UTF-8");
+      g_once_init_leave (&codeset_set, 1);
+    }
   return g_strdup (g_dgettext (domain, name));
 }
 

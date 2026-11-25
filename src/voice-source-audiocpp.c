@@ -332,6 +332,43 @@ acpp_install_exited (GObject      *source,
   g_clear_error (&error);
 }
 
+/* An error of the helper (audiocpp-models.py, ruaccent-models.py) in the
+ * user's language; its own English text, mostly a file name, a path or a
+ * server's answer, follows in parentheses */
+static GError *
+acpp_helper_error (const gchar *code,
+                   const gchar *message)
+{
+  const gchar *detail = message != NULL ? message : "";
+
+  if (g_strcmp0 (code, "space") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_NO_SPACE, _("not enough free disk space (%s)"), detail);
+  else if (g_strcmp0 (code, "checksum") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_INVALID_DATA, _("a downloaded file is not the expected one (%s)"), detail);
+  else if (g_strcmp0 (code, "download") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_FAILED, _("the download failed (%s)"), detail);
+  else if (g_strcmp0 (code, "convert") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_FAILED, _("the conversion of the model failed (%s)"), detail);
+  else if (g_strcmp0 (code, "catalogue") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_FAILED, _("the list of models is damaged (%s)"), detail);
+  else if (g_strcmp0 (code, "unknown") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_FAILED, _("the model is not in the list of models (%s)"), detail);
+  else if (g_strcmp0 (code, "busy") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_BUSY, _("the model is being installed already (%s)"), detail);
+  else if (g_strcmp0 (code, "exists") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_EXISTS, _("its folder was not made by this program (%s)"), detail);
+  else if (g_strcmp0 (code, "requires") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_FAILED, _("packages are missing (%s)"), detail);
+  else if (g_strcmp0 (code, "io") == 0)
+    return g_error_new (G_IO_ERROR, G_IO_ERROR_FAILED, _("a file could not be written (%s)"), detail);
+  else if (g_strcmp0 (code, "cancelled") == 0)
+    return g_error_new_literal (G_IO_ERROR, G_IO_ERROR_CANCELLED, _("cancelled"));
+
+  return g_error_new_literal (G_IO_ERROR, G_IO_ERROR_FAILED,
+                              *detail != '\0' ? detail : "?");
+}
+
+
 static void
 acpp_handle_line (AcppInstall *job,
                   const gchar *line)
@@ -391,17 +428,7 @@ acpp_handle_line (AcppInstall *job,
       const gchar *message = vi_json_string (object, "message");
       const gchar *code = vi_json_string (object, "code");
 
-      if (g_strcmp0 (code, "space") == 0)
-        job->error = g_error_new (G_IO_ERROR, G_IO_ERROR_NO_SPACE,
-                                  _("not enough free disk space (%s)"),
-                                  message != NULL ? message : "");
-      else if (g_strcmp0 (code, "checksum") == 0)
-        job->error = g_error_new (G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-                                  _("a downloaded file is not the expected one (%s)"),
-                                  message != NULL ? message : "");
-      else
-        job->error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_FAILED,
-                                          message != NULL ? message : "?");
+      job->error = acpp_helper_error (code, message);
     }
 
   g_object_unref (parser);
@@ -506,14 +533,18 @@ acpp_remove (Installer *in,
     {
       JsonParser  *parser = json_parser_new ();
       const gchar *message = NULL;
+      const gchar *code = NULL;
 
       if (out != NULL && json_parser_load_from_data (parser, out, -1, NULL)
           && json_parser_get_root (parser) != NULL
           && JSON_NODE_HOLDS_OBJECT (json_parser_get_root (parser)))
-        message = vi_json_string (json_node_get_object (json_parser_get_root (parser)),
-                                  "message");
-      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                           message != NULL ? message : "?");
+        {
+          JsonObject *object = json_node_get_object (json_parser_get_root (parser));
+
+          message = vi_json_string (object, "message");
+          code = vi_json_string (object, "code");
+        }
+      g_propagate_error (error, acpp_helper_error (code, message));
       g_object_unref (parser);
       ok = FALSE;
     }
