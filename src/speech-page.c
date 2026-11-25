@@ -1676,20 +1676,10 @@ speech_page_new (void)
   gtk_widget_set_halign (page->homographs_combo, GTK_ALIGN_FILL);
   gtk_size_group_add_widget (combo_size_group, page->homographs_combo);
   gtk_grid_attach (GTK_GRID (grid), page->homographs_combo, 1, 3, 1, 1);
-  page->homographs_button = gtk_button_new_with_mnemonic (_("Mo_dels…"));
-  gtk_widget_set_tooltip_text (page->homographs_button,
-                               _("Download or remove the RUAccent models for "
-                                 "Russian homographs"));
-  gtk_widget_set_halign (page->homographs_button, GTK_ALIGN_START);
-  gtk_widget_set_margin_start (page->homographs_button, 12);
-  gtk_grid_attach (GTK_GRID (grid), page->homographs_button, 2, 3, 1, 1);
   gtk_widget_set_no_show_all (page->homographs_label, TRUE);
   gtk_widget_set_no_show_all (page->homographs_combo, TRUE);
-  gtk_widget_set_no_show_all (page->homographs_button, TRUE);
   g_signal_connect (page->homographs_combo, "changed",
                     G_CALLBACK (speech_page_homographs_changed), page);
-  g_signal_connect (page->homographs_button, "clicked",
-                    G_CALLBACK (speech_page_homographs_models), page);
 
   /* text normalization (numbers, stress, ...) is always on: the modules
    * do it unless their configuration says "no", for debugging */

@@ -69,7 +69,6 @@ static const VoiceSource *sources[] =
   &voice_source_piper,
   &voice_source_rhvoice,
   &voice_source_audiocpp,
-  &voice_source_ruaccent,
 };
 
 

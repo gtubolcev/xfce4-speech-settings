@@ -852,3 +852,10 @@ msgstr "архив повреждён или не поддерживается (
 #: src/speech-page.c
 msgid "This synthesizer has no voices to download yet."
 msgstr "Для этого синтезатора пока нет загружаемых голосов."
+
+#. TRANSLATORS: a choice whose model package is missing; %s is the
+#. choice, the second %s the package
+#: src/speech-page-synth.c
+#, c-format
+msgid "%s (install %s)"
+msgstr "%s (установите %s)"

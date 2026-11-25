@@ -204,7 +204,6 @@ ViPackageResult vi_package_install_finish (GAsyncResult        *result,
 extern const VoiceSource voice_source_piper;
 extern const VoiceSource voice_source_rhvoice;
 extern const VoiceSource voice_source_audiocpp;
-extern const VoiceSource voice_source_ruaccent;
 
 G_END_DECLS
 

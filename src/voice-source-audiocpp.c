@@ -27,10 +27,6 @@
  * converts and checks; it prints its progress as one JSON object a line.
  * Here it is only run: "list" for the catalogue, "install ID", "remove ID".
  *
- * The same helper with another catalogue, as ruaccent-models.py of
- * speech-dispatcher-text-normalizer, installs the RUAccent homograph models
- * (MIT) into ~/.local/share/linux-tts/ruaccent: voice_source_ruaccent, for
- * "TextStressHomographs tiny|turbo" of the modules.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -51,9 +47,6 @@
 
 #define HELPER "/usr/share/speech-dispatcher-audiocpp/audiocpp-models.py"
 #define SYSTEM_DIR "/usr/share/audiocpp-tts"
-#ifndef RUACCENT_HELPER   /* -D for tests */
-#define RUACCENT_HELPER "/usr/share/linux-tts/ruaccent/ruaccent-models.py"
-#endif
 #define LINE_MAX_SIZE 4096
 
 typedef struct
@@ -94,15 +87,10 @@ static const AcppKind kind_audiocpp =
   HELPER, "AUDIOCPP_MODELS_HELPER", "audiocpp-tts", SYSTEM_DIR, "audiocpp.ini"
 };
 
-static const AcppKind kind_ruaccent =
-{
-  RUACCENT_HELPER, "RUACCENT_MODELS_HELPER", "linux-tts/ruaccent", "/usr/share/linux-tts/ruaccent", "model.onnx"
-};
-
 static const AcppKind *
 acpp_kind (Installer *in)
 {
-  return in->source == &voice_source_ruaccent ? &kind_ruaccent : &kind_audiocpp;
+  return &kind_audiocpp;
 }
 
 static const gchar *
@@ -127,12 +115,6 @@ static gchar **
 acpp_catalogue_command (void)
 {
   return acpp_catalogue_argv (&kind_audiocpp);
-}
-
-static gchar **
-ruaccent_catalogue_command (void)
-{
-  return acpp_catalogue_argv (&kind_ruaccent);
 }
 
 static gchar *
@@ -554,29 +536,6 @@ const VoiceSource voice_source_audiocpp =
                            "authors' page, checked and converted on this "
                            "computer."),
   .catalogue_command  = acpp_catalogue_command,
-  .free_voice         = acpp_free_voice,
-  .load               = acpp_load,
-  .state              = acpp_state,
-  .install            = acpp_install,
-  .remove             = acpp_remove,
-  .licence            = acpp_licence,
-};
-
-const VoiceSource voice_source_ruaccent =
-{
-  /* not a module: the models of TextStressHomographs, for every module */
-  .module             = "ruaccent",
-  .module_path        = RUACCENT_HELPER,
-  .title              = N_("Models for Russian homographs"),
-  .install_tooltip    = N_("Download the model from Hugging Face and install it for you"),
-  .quality_title      = N_("Licence"),
-  .note               = N_("RUAccent models (MIT licence) choose the stress of "
-                           "Russian homographs from the sentence: за́мок or "
-                           "замо́к, все or всё. The small one is fast enough "
-                           "for any computer, the large one is a little more "
-                           "accurate. They are downloaded from their authors' "
-                           "page and checked."),
-  .catalogue_command  = ruaccent_catalogue_command,
   .free_voice         = acpp_free_voice,
   .load               = acpp_load,
   .state              = acpp_state,

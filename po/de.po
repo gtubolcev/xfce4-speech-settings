@@ -833,3 +833,8 @@ msgstr "das Archiv ist beschädigt oder wird nicht unterstützt (%s)"
 #: src/speech-page.c
 msgid "This synthesizer has no voices to download yet."
 msgstr "Für diesen Synthesizer gibt es noch keine herunterladbaren Stimmen."
+
+#: src/speech-page-synth.c
+#, c-format
+msgid "%s (install %s)"
+msgstr "%s (%s installieren)"
