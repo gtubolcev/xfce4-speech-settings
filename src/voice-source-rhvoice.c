@@ -46,6 +46,7 @@
 #include <glib/gi18n.h>
 #endif
 
+#include "lang-names.h"
 #include "voice-installer-private.h"
 
 #define MODULE_PATH       "/usr/lib/speech-dispatcher-modules/sd_rhvoice"
@@ -443,7 +444,7 @@ load_voice (Installer   *in,
   const gchar *url = vi_json_string (object, "dataUrl");
   gchar       *md5 = md5_hex (vi_json_string (object, "dataMd5"));
   gchar       *repo = NULL;
-  gchar       *label, *upper;
+  gchar       *label, *upper, *english;
   RhvVoice    *voice;
   gint         major, minor;
 
@@ -473,7 +474,17 @@ load_voice (Installer   *in,
   /* "English (US)", "English (GB, Scotland)" */
   upper = country != NULL && *country != '\0' && strlen (country) <= 3
           ? g_ascii_strup (country, -1) : NULL;
-  label = g_strdelimit (g_strdup (language->name), "-", ' ');
+  english = g_strdelimit (g_strdup (language->name), "-", ' ');
+  /* "Englisch" in the user's language when iso-codes knows it */
+  label = lang_names_language (language->code, english);
+  g_free (english);
+  if (upper != NULL)
+    {
+      gchar *place = lang_names_region (upper, upper);
+
+      g_free (upper);
+      upper = place;
+    }
   if (upper != NULL)
     {
       gchar *with = accent != NULL && *accent != '\0' && strlen (accent) <= 40

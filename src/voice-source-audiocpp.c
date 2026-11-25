@@ -43,6 +43,7 @@
 #include <glib/gi18n.h>
 #endif
 
+#include "lang-names.h"
 #include "voice-installer-private.h"
 
 #define HELPER "/usr/share/speech-dispatcher-audiocpp/audiocpp-models.py"
@@ -196,6 +197,7 @@ acpp_load (Installer *in,
                                   ? json_node_get_string (lnode) : NULL;
           AcppModel   *model;
           GString     *needs = NULL;
+          gchar       *shown;
           guint        m;
 
           if (language == NULL || *language == '\0')
@@ -217,9 +219,11 @@ acpp_load (Installer *in,
                 g_string_append_printf (needs, ", %s", pkg);
             }
           model->missing = needs != NULL ? g_string_free (needs, FALSE) : NULL;
-          installer_add_voice (in, model, language, language, label,
+          shown = lang_names_label (language, NULL, language);
+          installer_add_voice (in, model, language, shown, label,
                                model->licence != NULL ? model->licence : "",
                                vi_json_int (object, "download", 0));
+          g_free (shown);
         }
     }
 

@@ -28,12 +28,16 @@ x11 = dependency('x11', required: gtk_x11.found())
 # the Piper voice downloader
 soup = dependency('libsoup-3.0', version: '>= 3.0')
 json_glib = dependency('json-glib-1.0', version: '>= 1.6')
+# names of languages and countries (read at run time; optional)
+iso_codes = dependency('iso-codes', required: false)
+iso_codes_prefix = iso_codes.found() ? iso_codes.get_variable(pkgconfig: 'prefix') : '/usr'
 
 conf = configuration_data()
 conf.set_quoted('PACKAGE', app_name)
 conf.set_quoted('PACKAGE_VERSION', meson.project_version())
 conf.set_quoted('GETTEXT_PACKAGE', gettext_package)
 conf.set_quoted('PACKAGE_LOCALE_DIR', localedir)
+conf.set_quoted('ISO_CODES_PREFIX', iso_codes_prefix)
 conf.set_quoted('SPEECHD_SYSCONFDIR', get_option('speechd-sysconfdir'))
 conf.set('HAVE_GTK_X11', gtk_x11.found())
 conf.set('HAVE_XFCE', with_xfce)

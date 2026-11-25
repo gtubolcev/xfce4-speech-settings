@@ -34,6 +34,7 @@
 #endif
 #include <speech-dispatcher/libspeechd.h>
 
+#include "lang-names.h"
 #include "speech-page.h"
 #include "speech-page-private.h"
 #include "voice-installer.h"
@@ -1512,10 +1513,12 @@ speech_page_new (void)
 
       if (module != NULL && *module != '\0')
         {
-          gchar *language = speech_page_get_language (page);
+          gchar *code = speech_page_get_language (page);
+          gchar *language = lang_names_language (code, code);
 
+          g_free (code);
           /* TRANSLATORS: first start of the dialog; %s are the synthesizer
-           * and the language code */
+           * and the name of the language (from iso-codes, "German") */
           text = g_strdup_printf (_("Speech now uses the synthesizer %s for "
                                     "the language %s. Its voice is kept "
                                     "loaded, so speech starts at once. Other "

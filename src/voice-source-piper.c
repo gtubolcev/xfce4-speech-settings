@@ -50,6 +50,7 @@
 #include <glib/gi18n.h>
 #endif
 
+#include "lang-names.h"
 #include "voice-installer-private.h"
 
 #define COLLECTION_URL "https://huggingface.co/rhasspy/piper-voices/resolve/main/"
@@ -304,6 +305,23 @@ file_md5 (JsonObject *file)
 
 
 
+/* The quality names of voices.json, translated */
+static const gchar *
+piper_quality (const gchar *quality)
+{
+  if (g_strcmp0 (quality, "x_low") == 0)
+    return C_("voice quality", "very low");
+  if (g_strcmp0 (quality, "low") == 0)
+    return C_("voice quality", "low");
+  if (g_strcmp0 (quality, "medium") == 0)
+    return C_("voice quality", "medium");
+  if (g_strcmp0 (quality, "high") == 0)
+    return C_("voice quality", "high");
+  return quality;
+}
+
+
+
 /* One voice of voices.json into the list; FALSE if it is not usable */
 static gboolean
 piper_add_voice (Installer   *in,
@@ -318,7 +336,7 @@ piper_add_voice (Installer   *in,
   const gchar *country = vi_json_string (language, "country_english");
   const gchar *card = NULL, *onnx = NULL, *onnx_md5 = NULL;
   const gchar *config = NULL, *config_md5 = NULL;
-  gchar       *family, *label, *onnx_name, *config_name;
+  gchar       *family, *label, *english_label, *onnx_name, *config_name;
   gint64       bytes = 0;
   GList       *members, *l;
   PiperVoice  *voice;
@@ -367,10 +385,13 @@ piper_add_voice (Installer   *in,
   g_list_free (members);
 
   family = g_strndup (key, strcspn (key, "_"));
-  label = country != NULL ? g_strdup_printf ("%s (%s)", english, country)
-                          : g_strdup (english);
-  installer_add_voice (in, voice, family, label, name, quality, bytes);
+  english_label = country != NULL ? g_strdup_printf ("%s (%s)", english, country)
+                                  : g_strdup (english);
+  /* "Deutsch (Deutschland)" in the user's language when iso-codes knows it */
+  label = lang_names_label (family, vi_json_string (language, "region"), english_label);
+  installer_add_voice (in, voice, family, label, name, piper_quality (quality), bytes);
   g_free (family);
+  g_free (english_label);
   g_free (label);
 
   return TRUE;

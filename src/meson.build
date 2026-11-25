@@ -1,5 +1,7 @@
 executable(
   app_name,
+  'lang-names.c',
+  'lang-names.h',
   'main.c',
   'speech-page.c',
   'speech-page-private.h',

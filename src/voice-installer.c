@@ -496,6 +496,16 @@ installer_show_licence (Installer *in)
 
 /* ------------------------------------------------------------ catalogue */
 
+static gint
+installer_compare_names (gconstpointer a,
+                         gconstpointer b,
+                         gpointer      names)
+{
+  return g_utf8_collate (g_hash_table_lookup (names, a), g_hash_table_lookup (names, b));
+}
+
+
+
 /* The languages of the store into the combo box: "All languages" first,
  * then by name; the one of the speech settings is chosen */
 static void
@@ -529,8 +539,9 @@ installer_fill_languages (Installer *in)
 
   gtk_combo_box_text_remove_all (combo);
   gtk_combo_box_text_append (combo, "", _("All languages"));
-  families = g_list_sort (g_hash_table_get_keys (names), (GCompareFunc) g_strcmp0);
-  /* sorted by family code, which is close to the English names */
+  /* sorted by the shown (translated) names */
+  families = g_list_sort_with_data (g_hash_table_get_keys (names),
+                                    installer_compare_names, names);
   for (l = families; l != NULL; l = l->next)
     gtk_combo_box_text_append (combo, l->data, g_hash_table_lookup (names, l->data));
   g_list_free (families);

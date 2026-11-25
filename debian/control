@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: Grigory Tuboltsev <gtubolcev@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                gettext,
+               iso-codes,
                libgtk-3-dev (>= 3.24),
                libjson-glib-dev (>= 1.6),
                libsoup-3.0-dev,
@@ -21,6 +22,7 @@ Rules-Requires-Root: no
 Package: xfce4-speech-settings
 Architecture: any
 Depends: speech-dispatcher, ${misc:Depends}, ${shlibs:Depends}
+Recommends: iso-codes
 Breaks: speech-dispatcher-sherpa-onnx (<< 0.1.0+git20261120033650), speech-dispatcher-sherpa (<< 0.1.0+git20261120033650),
         speech-dispatcher-vosk (<< 0.1.0+git20261120033650), speech-dispatcher-kokoro (<< 0.1.0+git20261120033650),
         speech-dispatcher-silero (<< 0.1.0+git20261120033650), speech-dispatcher-teratts (<< 0.1.0+git20261120033650)
@@ -36,6 +38,7 @@ Package: speech-settings-standalone
 Section: utils
 Architecture: any
 Depends: speech-dispatcher, ${misc:Depends}, ${shlibs:Depends}
+Recommends: iso-codes
 Description: speech settings dialog
  Chooses the language, the synthesizer and the voice of speech-dispatcher, the
  text-to-speech service of the desktop, and sets the rate, pitch, volume,
