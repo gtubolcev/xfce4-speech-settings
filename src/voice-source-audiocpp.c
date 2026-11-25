@@ -96,7 +96,7 @@ static const AcppKind kind_audiocpp =
 
 static const AcppKind kind_ruaccent =
 {
-  RUACCENT_HELPER, "RUACCENT_MODELS_HELPER", "linux-tts/ruaccent", NULL, "model.onnx"
+  RUACCENT_HELPER, "RUACCENT_MODELS_HELPER", "linux-tts/ruaccent", "/usr/share/linux-tts/ruaccent", "model.onnx"
 };
 
 static const AcppKind *

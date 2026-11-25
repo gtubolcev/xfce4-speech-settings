@@ -67,8 +67,6 @@ typedef struct
   /* runs the synthesizer's "-vulkan-rs" variant, which the menu hides */
   GtkWidget     *gpu_box;           /* "CPU [switch] GPU" */
   GtkWidget     *gpu_switch;        /* on: the -vulkan-rs variant */
-  GtkWidget     *voices_button;
-  GtkWidget     *models_button;
   /* "Loading the voice…" or why it failed, next to preload_check */
   GtkWidget     *load_box;
   GtkWidget     *load_spinner;
@@ -134,7 +132,12 @@ void speech_page_show_message (SpeechPage     *page,
                                const gchar    *message);
 void speech_page_queue_save (SpeechPage *page);
 gboolean speech_page_connect (SpeechPage *page);
-void speech_page_sync_voices_button (SpeechPage *page);
+gboolean speech_page_can_add_voices (SpeechPage *page);
+
+/* last entries of the synthesizer and the voice lists: they open the
+ * installer instead of choosing something */
+#define SPEECH_PAGE_MORE_MODELS_ID "@more-models"
+#define SPEECH_PAGE_ADD_VOICES_ID  "@add-voices"
 
 /* speech-page-voices.c */
 gboolean speech_page_array_has (GPtrArray   *array,

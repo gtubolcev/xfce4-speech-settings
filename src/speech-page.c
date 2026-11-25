@@ -463,27 +463,22 @@ speech_page_connect (SpeechPage *page)
 
 
 
-/* The voices button only for a synthesizer whose voices can be downloaded:
- * the chosen one, else the default */
-void
-speech_page_sync_voices_button (SpeechPage *page)
+/* "Add voices…" ends the voice list of a synthesizer whose voices can be
+ * downloaded; audio.cpp has its models behind "More Models…" instead */
+gboolean
+speech_page_can_add_voices (SpeechPage *page)
 {
-  gchar    *module;
+  gchar    *module = speech_page_get_module (page);
+  gboolean  can = module != NULL && voice_installer_has_source (module)
+                  && !g_str_has_prefix (module, "audiocpp");
 
-  if (page->voices_button == NULL)
-    return;
-
-  module = speech_page_get_module (page);
-  /* audio.cpp: its models are behind the button next to it */
-  gtk_widget_set_visible (page->voices_button,
-                          voice_installer_has_source (module)
-                          && !g_str_has_prefix (module, "audiocpp"));
   g_free (module);
-  if (page->models_button != NULL)
-    gtk_widget_set_visible (page->models_button, voice_installer_has_source ("audiocpp"));
+  return can;
 }
 
-
+static void speech_page_add_voices (SpeechPage *page, GtkComboBox *combo);
+static void speech_page_more_models (SpeechPage *page, GtkComboBox *combo);
+static void speech_page_voices_changed (gpointer data);
 
 static void
 speech_page_voice_changed (GtkComboBox *combo,
@@ -497,6 +492,14 @@ speech_page_voice_changed (GtkComboBox *combo,
   gchar       *type;
   gchar       *message;
 
+  if (name != NULL && strcmp (name, SPEECH_PAGE_ADD_VOICES_ID) == 0)
+    {
+      if (!page->updating)
+        speech_page_add_voices (page, combo);
+      return;
+    }
+  if (name != NULL)
+    g_object_set_data_full (G_OBJECT (combo), "last-id", g_strdup (name), g_free);
   if (page->updating || name == NULL)
     return;
 
@@ -522,7 +525,6 @@ speech_page_voice_changed (GtkComboBox *combo,
         page->reload_pending = TRUE;
       speech_page_queue_save (page);
       speech_page_sync_preload_full (page, TRUE);
-      speech_page_sync_voices_button (page);
       speech_page_request_load (page);
     }
 
@@ -544,7 +546,6 @@ speech_page_use_module (SpeechPage  *page,
   speech_page_update_voices (page);
   speech_page_retry_if_empty (page);
   speech_page_sync_preload (page);
-  speech_page_sync_voices_button (page);
   speech_page_request_load (page);
 }
 
@@ -576,6 +577,14 @@ speech_page_model_changed (GtkComboBox *combo,
   const gchar *model = gtk_combo_box_get_active_id (combo);
   gchar       *module;
 
+  if (model != NULL && strcmp (model, SPEECH_PAGE_MORE_MODELS_ID) != 0)
+    g_object_set_data_full (G_OBJECT (combo), "last-id", g_strdup (model), g_free);
+  if (model != NULL && strcmp (model, SPEECH_PAGE_MORE_MODELS_ID) == 0)
+    {
+      if (!page->updating)
+        speech_page_more_models (page, combo);
+      return;
+    }
   if (page->updating || model == NULL)
     return;
 
@@ -758,7 +767,6 @@ speech_page_apply_language (gpointer data)
   speech_page_update_voices (page);
   speech_page_retry_if_empty (page);
   speech_page_sync_preload (page);
-  speech_page_sync_voices_button (page);
   speech_page_request_load (page);
 
   g_free (language);
@@ -897,28 +905,47 @@ speech_page_voices_changed (gpointer data)
 
 
 
+/* Puts the combo back on the entry it had before an installer entry was
+ * chosen */
 static void
-speech_page_voices_clicked (GtkButton  *button,
-                            SpeechPage *page)
+speech_page_restore_combo (SpeechPage  *page,
+                           GtkComboBox *combo)
 {
-  GtkWidget *toplevel = gtk_widget_get_toplevel (GTK_WIDGET (button));
+  const gchar *last = g_object_get_data (G_OBJECT (combo), "last-id");
+  gboolean     updating = page->updating;
+
+  page->updating = TRUE;
+  if (last == NULL || !gtk_combo_box_set_active_id (combo, last))
+    gtk_combo_box_set_active (combo, -1);
+  page->updating = updating;
+}
+
+/* "Add voices…": downloads voices for the synthesizer */
+static void
+speech_page_add_voices (SpeechPage  *page,
+                        GtkComboBox *combo)
+{
+  GtkWidget *toplevel = gtk_widget_get_toplevel (GTK_WIDGET (combo));
   gchar     *language = speech_page_get_language (page);
   gchar     *module = speech_page_get_module (page);
 
+  speech_page_restore_combo (page, combo);
   voice_installer_show (GTK_IS_WINDOW (toplevel) ? GTK_WINDOW (toplevel) : NULL,
                         module, language, speech_page_voices_changed, page);
   g_free (module);
   g_free (language);
 }
 
-/* the models of audio.cpp the packages cannot hold (Supertonic 3, ...) */
+/* "More Models…": the models of audio.cpp the packages cannot hold
+ * (Supertonic 3, ...) */
 static void
-speech_page_models_clicked (GtkButton  *button,
-                            SpeechPage *page)
+speech_page_more_models (SpeechPage  *page,
+                         GtkComboBox *combo)
 {
-  GtkWidget *toplevel = gtk_widget_get_toplevel (GTK_WIDGET (button));
+  GtkWidget *toplevel = gtk_widget_get_toplevel (GTK_WIDGET (combo));
   gchar     *language = speech_page_get_language (page);
 
+  speech_page_restore_combo (page, combo);
   voice_installer_show (GTK_IS_WINDOW (toplevel) ? GTK_WINDOW (toplevel) : NULL,
                         "audiocpp", language, speech_page_voices_changed, page);
   g_free (language);
@@ -1589,29 +1616,6 @@ speech_page_new (void)
                     G_CALLBACK (speech_page_gpu_toggled), page);
   speech_page_watch_load_state (page);
   speech_page_show_load_state (page);
-
-  page->voices_button = gtk_button_new_with_mnemonic (_("_Voices…"));
-  gtk_widget_set_tooltip_text (page->voices_button,
-                               _("Download more voices for this synthesizer"));
-  page->models_button = gtk_button_new_with_mnemonic (_("_More Synthesizers…"));
-  gtk_widget_set_tooltip_text (page->models_button,
-                               _("Download synthesizers for audio.cpp whose "
-                                 "licences keep them out of the packages"));
-  {
-    GtkWidget *buttons = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
-
-    gtk_widget_set_halign (buttons, GTK_ALIGN_START);
-    gtk_box_pack_start (GTK_BOX (buttons), page->voices_button, FALSE, FALSE, 0);
-    gtk_box_pack_start (GTK_BOX (buttons), page->models_button, FALSE, FALSE, 0);
-    gtk_grid_attach (GTK_GRID (grid), buttons, 1, 6, 1, 1);
-  }
-  gtk_widget_set_no_show_all (page->voices_button, TRUE);
-  gtk_widget_set_no_show_all (page->models_button, TRUE);
-  speech_page_sync_voices_button (page);
-  g_signal_connect (page->voices_button, "clicked",
-                    G_CALLBACK (speech_page_voices_clicked), page);
-  g_signal_connect (page->models_button, "clicked",
-                    G_CALLBACK (speech_page_models_clicked), page);
 
   /* rate, pitch, volume: a column right of language, synthesizer, voice */
   page->rate_spin = speech_page_bind_percent (page, "DefaultRate", 0);

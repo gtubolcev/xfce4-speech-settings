@@ -37,6 +37,7 @@
 #include <speech-dispatcher/libspeechd.h>
 
 #include "speech-page-private.h"
+#include "voice-installer.h"
 
 /* a module still starting lists no voices: ask again this often, this many
  * times (sherpa-onnx with a preloaded model needs several seconds) */
@@ -562,7 +563,12 @@ speech_page_fill_models (SpeechPage *page)
     }
   if (selected != NULL)
     gtk_combo_box_set_active_id (GTK_COMBO_BOX (combo), selected);
-  gtk_widget_set_sensitive (page->model_combo, models->len > 0);
+  if (voice_installer_has_source ("audiocpp"))
+    gtk_combo_box_text_append (combo, SPEECH_PAGE_MORE_MODELS_ID,
+                               _("More Models…"));
+  gtk_widget_set_sensitive (page->model_combo,
+                            models->len > 0
+                            || voice_installer_has_source ("audiocpp"));
   page->updating = updating;
 
   g_ptr_array_free (models, TRUE);
@@ -594,7 +600,20 @@ speech_page_ensure_voice (SpeechPage  *page,
     return FALSE;
   /* emits "changed": the voice is saved */
   if (prefer == NULL || !gtk_combo_box_set_active_id (combo, prefer))
-    gtk_combo_box_set_active (combo, 0);
+    {
+      gtk_combo_box_set_active (combo, 0);
+      /* only "Add voices…" in the list: no voice to take */
+      if (g_strcmp0 (gtk_combo_box_get_active_id (combo),
+                     SPEECH_PAGE_ADD_VOICES_ID) == 0)
+        {
+          gboolean updating = page->updating;
+
+          page->updating = TRUE;
+          gtk_combo_box_set_active (combo, -1);
+          page->updating = updating;
+          return FALSE;
+        }
+    }
   return gtk_combo_box_get_active_id (combo) != NULL;
 }
 
@@ -1088,6 +1107,7 @@ speech_page_update_voices (SpeechPage *page)
   gchar              *active = NULL;
   const gchar        *voice_language = NULL;
   gboolean            updating = page->updating;
+  gboolean            can_add;
   guint               n = 0;
   guint               i;
 
@@ -1130,6 +1150,10 @@ speech_page_update_voices (SpeechPage *page)
       n++;
     }
   g_hash_table_destroy (seen);
+  can_add = speech_page_can_add_voices (page);
+  if (can_add)
+    gtk_combo_box_text_append (combo, SPEECH_PAGE_ADD_VOICES_ID,
+                               _("Add voices…"));
 
   if (voice_language != NULL)
     active = speechd_module_get_voice (module, voice_language, type);
@@ -1147,7 +1171,8 @@ speech_page_update_voices (SpeechPage *page)
     gtk_combo_box_set_active_id (GTK_COMBO_BOX (combo), active);
 
   gtk_widget_set_sensitive (page->voice_combo,
-                            n > 0 && setting != SPEECHD_VOICE_SETTING_NONE);
+                            (n > 0 || can_add)
+                            && setting != SPEECHD_VOICE_SETTING_NONE);
   if (n == 0)
     gtk_widget_set_tooltip_text (page->voice_combo,
                                  _("The synthesizer has no voice for this "

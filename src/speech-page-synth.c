@@ -626,6 +626,14 @@ homograph_model_installed (const gchar *size)
   gboolean found = g_file_test (path, G_FILE_TEST_IS_REGULAR);
 
   g_free (path);
+  if (!found)
+    {
+      /* the ruaccent-model-* packages */
+      path = g_build_filename ("/usr/share/linux-tts/ruaccent", size,
+                               "model.onnx", NULL);
+      found = g_file_test (path, G_FILE_TEST_IS_REGULAR);
+      g_free (path);
+    }
   return found;
 }
 
@@ -908,5 +916,4 @@ speech_page_preload_toggled (GtkToggleButton *button,
   g_free (module);
 
   speech_page_sync_preload (page);
-  speech_page_sync_voices_button (page);
 }
