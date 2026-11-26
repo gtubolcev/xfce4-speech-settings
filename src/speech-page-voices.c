@@ -522,12 +522,38 @@ speech_page_configured_model (SpeechPage  *page,
   return key;
 }
 
+/* The models in the list, the lightest first (user, 2026-11-26: CPU time and
+ * memory of the measurements in RESEARCH-tts-engines.md); the ones not named
+ * here follow, by name */
+static const gchar *model_weight_order[] =
+{
+  "rhvoice", "silero", "piper", "vosk", "supertonic", "teratts", "pocket",
+  "kokoro", "vits", NULL
+};
+
+static guint
+speech_page_model_rank (const gchar *key)
+{
+  guint i;
+
+  for (i = 0; model_weight_order[i] != NULL; i++)
+    if (strcmp (model_weight_order[i], key) == 0)
+      return i;
+  return i;
+}
+
 static gint
 speech_page_compare_models (gconstpointer a,
                             gconstpointer b)
 {
-  return g_utf8_collate (speech_page_model_name (*(const gchar **) a),
-                         speech_page_model_name (*(const gchar **) b));
+  const gchar *x = *(const gchar **) a;
+  const gchar *y = *(const gchar **) b;
+  guint        rx = speech_page_model_rank (x);
+  guint        ry = speech_page_model_rank (y);
+
+  if (rx != ry)
+    return rx < ry ? -1 : 1;
+  return g_utf8_collate (speech_page_model_name (x), speech_page_model_name (y));
 }
 
 /* Offers the models of all modules for the selected language and selects
@@ -581,6 +607,13 @@ speech_page_fill_models (SpeechPage *page)
     selected = speech_page_configured_model (page, first, language);
   if (selected == NULL && models->len > 0)
     selected = g_ptr_array_index (models, 0);
+
+  /* MMS is offered in More Models only; shown here only while it is the
+   * model in use or the language has no other */
+  if (g_strcmp0 (selected, "mms") != 0 && models->len > 1)
+    g_ptr_array_remove (models, (gpointer) g_intern_string ("mms"));
+  if (selected != NULL && !g_ptr_array_find (models, selected, NULL))
+    selected = models->len > 0 ? g_ptr_array_index (models, 0) : NULL;
 
   g_ptr_array_sort (models, speech_page_compare_models);
   page->updating = TRUE;
