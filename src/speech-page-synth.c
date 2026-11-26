@@ -873,20 +873,15 @@ homographs_read_line (GObject *source, GAsyncResult *res, gpointer data)
   GError *error = NULL;
   gchar *line = g_data_input_stream_read_line_finish (in, res, NULL, &error);
 
+  /* `in` is the source of the call, not ours to release: homographs_start
+   * dropped its own reference, the pending read holds the stream alive */
   if (error != NULL)
     {
-      gboolean gone = g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
-
       g_error_free (error);
-      g_object_unref (in);
-      (void) gone;
       return;
     }
   if (line == NULL)
-    {
-      g_object_unref (in);
-      return;
-    }
+    return;
   homographs_handle_line (page, line);
   g_free (line);
   g_data_input_stream_read_line_async (in, G_PRIORITY_DEFAULT,
