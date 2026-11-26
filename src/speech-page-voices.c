@@ -266,6 +266,7 @@ static const Choice model_names[] =
   { "silero", "Silero" },
   { "supertonic", "Supertonic" },
   { "teratts", "TeraTTS" },
+  { "tinyvoca", "tiny-voca-ru" },
   { "vits", "VITS" },
   { "vosk", "Vosk TTS" },
 };
@@ -527,7 +528,7 @@ speech_page_configured_model (SpeechPage  *page,
  * here follow, by name */
 static const gchar *model_weight_order[] =
 {
-  "rhvoice", "silero", "piper", "vosk", "supertonic", "teratts", "pocket",
+  "rhvoice", "tinyvoca", "silero", "piper", "vosk", "supertonic", "teratts", "pocket",
   "kokoro", "vits", NULL
 };
 
