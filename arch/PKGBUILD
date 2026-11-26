@@ -3,7 +3,7 @@
 # from two meson builds: the Xfce dialog and the plain GTK one.
 pkgbase=xfce4-speech-settings
 pkgname=(xfce4-speech-settings speech-settings-gtk)
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc='Speech Dispatcher settings dialog'
 arch=(x86_64 aarch64)

@@ -40,7 +40,7 @@ Needs GTK 3 and libspeechd; libxfce4ui-2 and libxfce4util for the Xfce build.
 build is made when the libraries are there). `build-deb.sh` builds a .deb in a
 docker image (`speech-build`).
 
-Status: early, version 0.1.
+Status: early, version 0.1.1.
 
 ## License
 
