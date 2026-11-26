@@ -929,6 +929,8 @@ homographs_start (SpeechPage *page, const gchar *module, const gchar *id)
   gtk_label_set_text (GTK_LABEL (page->homographs_status), _("Starting…"));
   gtk_widget_set_sensitive (page->homographs_cancel, TRUE);
   gtk_widget_set_sensitive (page->homographs_combo, FALSE);
+  /* show_all does nothing to a widget marked no_show_all: clear the mark first */
+  gtk_widget_set_no_show_all (page->homographs_box, FALSE);
   gtk_widget_show_all (page->homographs_box);
   out = g_data_input_stream_new (g_subprocess_get_stdout_pipe (proc));
   g_data_input_stream_read_line_async (G_DATA_INPUT_STREAM (out), G_PRIORITY_DEFAULT,
