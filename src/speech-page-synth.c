@@ -34,9 +34,9 @@
 #include <glib/gi18n.h>
 #include <unistd.h>
 #include <gtk/gtk.h>
+#endif
 #include <json-glib/json-glib.h>
 #include <signal.h>
-#endif
 #include <speech-dispatcher/libspeechd.h>
 
 #include "speech-page-private.h"
