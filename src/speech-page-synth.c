@@ -116,16 +116,24 @@ speech_page_preload_value (SpeechPage  *page,
   gchar *language;
   gchar *type;
 
-  if (strcmp (speechd_module_base (module), "sherpa") != 0
-      && strcmp (speechd_module_base (module), "piper") != 0)
+  gboolean by_id = strcmp (speechd_module_base (module), "sherpa") == 0
+                   || strcmp (speechd_module_base (module), "piper") == 0;
+
+  /* the modules with their own voice line (KokoroVoice "en-US" "…") load the
+   * model of the voice chosen for the language; "1" would load the model of
+   * whichever voice the module finds first, often another language's */
+  if (!by_id
+      && speechd_module_voice_setting (module) != SPEECHD_VOICE_SETTING_MODULE)
     return g_strdup ("1");
 
   language = speech_page_get_language (page);
   type = speech_page_get_voice_type (page);
   value = speechd_module_get_voice (module, language, type);
-  if (value == NULL)
+  if (value == NULL && by_id)
     value = g_strdup (gtk_combo_box_get_active_id (
                         GTK_COMBO_BOX (page->voice_combo)));
+  if (value == NULL)
+    value = g_strdup ("1");
   g_free (type);
   g_free (language);
 
