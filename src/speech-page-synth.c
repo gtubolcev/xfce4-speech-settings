@@ -900,7 +900,7 @@ homographs_start (SpeechPage *page, const gchar *module, const gchar *id)
   const gchar *helper = g_getenv ("SPEECH_RUACCENT_HELPER");
   GSubprocess *proc;
   GError      *error = NULL;
-  GInputStream *out;
+  GDataInputStream *out;
 
   if (helper == NULL || *helper == '\0')
     helper = RUACCENT_HELPER;
@@ -939,6 +939,7 @@ homographs_start (SpeechPage *page, const gchar *module, const gchar *id)
   g_data_input_stream_read_line_async (G_DATA_INPUT_STREAM (out), G_PRIORITY_DEFAULT,
                                        page->homographs_cancellable,
                                        homographs_read_line, page);
+  g_object_unref (out);
   g_subprocess_wait_async (proc, page->homographs_cancellable, homographs_finished, page);
 }
 
