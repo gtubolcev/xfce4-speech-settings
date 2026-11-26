@@ -1,0 +1,41 @@
+# Maintainer: Grigory Tuboltsev <gtubolcev@gmail.com>
+# Builds from the checkout this file lives in (arch/ inside the repository); two packages
+# from two meson builds: the Xfce dialog and the plain GTK one.
+pkgbase=xfce4-speech-settings
+pkgname=(xfce4-speech-settings speech-settings-gtk)
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Speech Dispatcher settings dialog'
+arch=(x86_64 aarch64)
+url='https://github.com/gtubolcev/xfce4-speech-settings'
+license=(GPL-2.0-or-later)
+makedepends=(meson gettext gtk3 json-glib libsoup3 speech-dispatcher libxfce4ui libxfce4util)
+options=(!debug)
+
+_src() { echo "$startdir/.."; }
+
+build() {
+  meson setup build-xfce "$(_src)" --prefix=/usr -Dxfce=enabled
+  meson compile -C build-xfce
+  meson setup build-gtk "$(_src)" --prefix=/usr -Dxfce=disabled
+  meson compile -C build-gtk
+}
+
+check() {
+  meson test -C build-xfce --print-errorlogs
+  meson test -C build-gtk --print-errorlogs
+}
+
+package_xfce4-speech-settings() {
+  pkgdesc='Speech Dispatcher settings dialog for the Xfce settings manager'
+  depends=(speech-dispatcher gtk3 json-glib libsoup3 libxfce4ui libxfce4util)
+  optdepends=('iso-codes: names of languages and countries')
+  DESTDIR="$pkgdir" meson install -C build-xfce --no-rebuild
+}
+
+package_speech-settings-gtk() {
+  pkgdesc='Speech Dispatcher settings dialog, GTK 3 only (for KDE, GNOME and others)'
+  depends=(speech-dispatcher gtk3 json-glib libsoup3)
+  optdepends=('iso-codes: names of languages and countries')
+  DESTDIR="$pkgdir" meson install -C build-gtk --no-rebuild
+}
