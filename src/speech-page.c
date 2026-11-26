@@ -1173,6 +1173,7 @@ speech_page_free (gpointer data)
       speech_page_store_language (page, page->typed_language);
     }
   g_free (page->typed_language);
+  speech_page_homographs_free (page);
 
   speech_page_apply (page);
 
@@ -1728,6 +1729,22 @@ speech_page_new (void)
   gtk_widget_set_no_show_all (page->homographs_combo, TRUE);
   g_signal_connect (page->homographs_combo, "changed",
                     G_CALLBACK (speech_page_homographs_changed), page);
+  /* the download of a RUAccent model: progress under the combo */
+  page->homographs_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  page->homographs_bar = gtk_progress_bar_new ();
+  gtk_widget_set_hexpand (page->homographs_bar, TRUE);
+  gtk_widget_set_valign (page->homographs_bar, GTK_ALIGN_CENTER);
+  gtk_box_pack_start (GTK_BOX (page->homographs_box), page->homographs_bar, TRUE, TRUE, 0);
+  page->homographs_status = gtk_label_new ("");
+  gtk_label_set_xalign (GTK_LABEL (page->homographs_status), 0.0);
+  gtk_label_set_ellipsize (GTK_LABEL (page->homographs_status), PANGO_ELLIPSIZE_END);
+  gtk_box_pack_start (GTK_BOX (page->homographs_box), page->homographs_status, FALSE, FALSE, 0);
+  page->homographs_cancel = gtk_button_new_with_mnemonic (_("Cancel"));
+  gtk_box_pack_start (GTK_BOX (page->homographs_box), page->homographs_cancel, FALSE, FALSE, 0);
+  gtk_widget_set_no_show_all (page->homographs_box, TRUE);
+  gtk_grid_attach (GTK_GRID (grid), page->homographs_box, 1, 4, 1, 1);
+  g_signal_connect (page->homographs_cancel, "clicked",
+                    G_CALLBACK (speech_page_homographs_cancel), page);
 
   /* text normalization (numbers, stress, ...) is always on: the modules
    * do it unless their configuration says "no", for debugging */

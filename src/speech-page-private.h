@@ -96,6 +96,15 @@ typedef struct
   /* TextStressHomographs of the synthesizer, and the RUAccent models */
   GtkWidget     *homographs_label;
   GtkWidget     *homographs_combo;
+  GtkWidget     *homographs_box;       /* progress of a model download */
+  GtkWidget     *homographs_bar;
+  GtkWidget     *homographs_status;
+  GtkWidget     *homographs_cancel;
+  GSubprocess   *homographs_proc;      /* the helper, while it downloads */
+  gchar         *homographs_pending;   /* the choice waiting for the model */
+  gchar         *homographs_module;
+  gboolean       homographs_cancelled;
+  GCancellable  *homographs_cancellable;
   GtkWidget     *test_view;     /* GtkTextView, grows with its text */
   GtkWidget     *test_grid;
   /* the sentence put into test_view for a language, while the user keeps it */
@@ -183,6 +192,8 @@ gchar *speech_page_preload_value (SpeechPage  *page,
                                   const gchar *module);
 void speech_page_park_preloads (SpeechPage *page);
 void speech_page_shrink_window (GtkWidget *toplevel);
+void speech_page_homographs_cancel (GtkButton *button, SpeechPage *page);
+void speech_page_homographs_free (SpeechPage *page);
 void speech_page_show_load_state (SpeechPage *page);
 void speech_page_watch_load_state (SpeechPage *page);
 void speech_page_begin_load (SpeechPage *page);

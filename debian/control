@@ -22,7 +22,7 @@ Rules-Requires-Root: no
 Package: xfce4-speech-settings
 Architecture: any
 Depends: speech-dispatcher, ${misc:Depends}, ${shlibs:Depends}
-Recommends: iso-codes
+Recommends: iso-codes, linux-tts-ruaccent-installer
 Breaks: speech-dispatcher-sherpa-onnx (<< 0.1.0+git20261120033650), speech-dispatcher-sherpa (<< 0.1.0+git20261120033650),
         speech-dispatcher-vosk (<< 0.1.0+git20261120033650), speech-dispatcher-kokoro (<< 0.1.0+git20261120033650),
         speech-dispatcher-silero (<< 0.1.0+git20261120033650), speech-dispatcher-teratts (<< 0.1.0+git20261120033650)
@@ -38,7 +38,7 @@ Package: speech-settings-gtk
 Section: utils
 Architecture: any
 Depends: speech-dispatcher, ${misc:Depends}, ${shlibs:Depends}
-Recommends: iso-codes
+Recommends: iso-codes, linux-tts-ruaccent-installer
 Replaces: speech-settings-standalone
 Breaks: speech-settings-standalone
 Description: speech settings dialog

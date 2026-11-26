@@ -34,6 +34,8 @@
 #include <glib/gi18n.h>
 #include <unistd.h>
 #include <gtk/gtk.h>
+#include <json-glib/json-glib.h>
+#include <signal.h>
 #endif
 #include <speech-dispatcher/libspeechd.h>
 
@@ -674,10 +676,9 @@ speech_page_sync_homographs (SpeechPage *page)
       gchar       *text;
 
       if (i >= 2 && !homograph_model_installed (id))
-        /* TRANSLATORS: a choice whose model package is missing; %s is the
-         * choice, the second %s the package */
-        text = g_strdup_printf (_("%s (install %s)"), _(homograph_modes[i].label),
-                                i == 2 ? "ruaccent-model-tiny" : "ruaccent-model-turbo");
+        /* TRANSLATORS: a choice whose model is not downloaded yet; %s is the
+         * choice, it downloads when chosen */
+        text = g_strdup_printf (_("%s (downloads)"), _(homograph_modes[i].label));
       else
         text = g_strdup (_(homograph_modes[i].label));
       gtk_combo_box_text_append (GTK_COMBO_BOX_TEXT (page->homographs_combo), id, text);
@@ -699,6 +700,248 @@ speech_page_sync_homographs (SpeechPage *page)
   g_free (module);
 }
 
+
+/* The model of a choice is downloaded by the helper of the package
+ * linux-tts-ruaccent-installer when the choice is made; the option is
+ * written only after the download is done. */
+#define RUACCENT_HELPER "/usr/share/linux-tts-ruaccent-installer/ruaccent-models.py"
+
+static void homographs_read_line (GObject *source, GAsyncResult *res, gpointer data);
+
+static void
+homographs_progress_hide (SpeechPage *page)
+{
+  gtk_widget_hide (page->homographs_box);
+  gtk_widget_set_sensitive (page->homographs_combo, TRUE);
+  g_clear_object (&page->homographs_proc);
+  g_clear_object (&page->homographs_cancellable);
+  g_clear_pointer (&page->homographs_pending, g_free);
+  g_clear_pointer (&page->homographs_module, g_free);
+}
+
+void
+speech_page_homographs_free (SpeechPage *page)
+{
+  if (page->homographs_cancellable != NULL)
+    g_cancellable_cancel (page->homographs_cancellable);
+  if (page->homographs_proc != NULL)
+    g_subprocess_send_signal (page->homographs_proc, SIGTERM);
+  g_clear_object (&page->homographs_proc);
+  g_clear_object (&page->homographs_cancellable);
+  g_clear_pointer (&page->homographs_pending, g_free);
+  g_clear_pointer (&page->homographs_module, g_free);
+}
+
+void
+speech_page_homographs_cancel (GtkButton  *button,
+                               SpeechPage *page)
+{
+  if (page->homographs_proc != NULL)
+    {
+      page->homographs_cancelled = TRUE;
+      gtk_widget_set_sensitive (page->homographs_cancel, FALSE);
+      g_subprocess_send_signal (page->homographs_proc, SIGTERM);
+    }
+}
+
+static void
+homographs_failed (SpeechPage *page, const gchar *text)
+{
+  homographs_progress_hide (page);
+  /* back to what the synthesizer has */
+  speech_page_sync_homographs (page);
+  if (text != NULL)
+    speech_page_show_message (page, GTK_MESSAGE_ERROR, text);
+}
+
+static const gchar *
+homographs_error_text (const gchar *code)
+{
+  if (g_strcmp0 (code, "space") == 0)
+    return _("Not enough free disk space for the model.");
+  if (g_strcmp0 (code, "checksum") == 0)
+    return _("The downloaded model is damaged (checksum mismatch).");
+  if (g_strcmp0 (code, "download") == 0)
+    return _("The model could not be downloaded. Check the network connection.");
+  if (g_strcmp0 (code, "busy") == 0)
+    return _("Another installation is running. Try again when it is done.");
+  return _("The model could not be installed.");
+}
+
+static void
+homographs_handle_line (SpeechPage *page, const gchar *line)
+{
+  JsonParser *parser = json_parser_new ();
+  JsonObject *obj;
+  const gchar *stage;
+
+  if (!json_parser_load_from_data (parser, line, -1, NULL)
+      || !JSON_NODE_HOLDS_OBJECT (json_parser_get_root (parser)))
+    {
+      g_object_unref (parser);
+      return;
+    }
+  obj = json_node_get_object (json_parser_get_root (parser));
+  stage = json_object_has_member (obj, "stage")
+    ? json_object_get_string_member (obj, "stage") : NULL;
+  if (g_strcmp0 (stage, "download") == 0)
+    {
+      gdouble done = json_object_has_member (obj, "done") ? json_object_get_double_member (obj, "done") : 0;
+      gdouble total = json_object_has_member (obj, "total") ? json_object_get_double_member (obj, "total") : 0;
+      gchar  *text;
+
+      if (total > 0)
+        {
+          gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (page->homographs_bar),
+                                         0.95 * MIN (done / total, 1.0));
+          text = g_strdup_printf (_("Downloading… %.0f of %.0f MB"),
+                                  done / 1048576.0, total / 1048576.0);
+        }
+      else
+        text = g_strdup (_("Downloading…"));
+      gtk_label_set_text (GTK_LABEL (page->homographs_status), text);
+      g_free (text);
+    }
+  else if (g_strcmp0 (stage, "convert") == 0 || g_strcmp0 (stage, "check") == 0)
+    {
+      gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (page->homographs_bar), 0.97);
+      gtk_label_set_text (GTK_LABEL (page->homographs_status), _("Checking…"));
+    }
+  else if (g_strcmp0 (stage, "error") == 0)
+    {
+      const gchar *code = json_object_has_member (obj, "code")
+        ? json_object_get_string_member (obj, "code") : NULL;
+
+      /* "exists" means the model is already there: not an error */
+      if (g_strcmp0 (code, "exists") == 0)
+        g_object_set_data (G_OBJECT (page->homographs_status), "exists", GINT_TO_POINTER (1));
+      else if (g_strcmp0 (code, "cancelled") != 0)
+        {
+          g_object_set_data_full (G_OBJECT (page->homographs_status), "err",
+                                  g_strdup (homographs_error_text (code)), g_free);
+        }
+    }
+  g_object_unref (parser);
+}
+
+static void
+homographs_finished (GObject *source, GAsyncResult *res, gpointer data)
+{
+  SpeechPage *page = data;
+  GSubprocess *proc = G_SUBPROCESS (source);
+  gboolean ok;
+  const gchar *err;
+
+  if (!g_subprocess_wait_finish (proc, res, NULL))
+    return;               /* cancelled: the page is closing */
+  ok = g_subprocess_get_if_exited (proc) && g_subprocess_get_exit_status (proc) == 0;
+  if (page->homographs_proc != proc)
+    return;
+  err = g_object_get_data (G_OBJECT (page->homographs_status), "err");
+  if (!ok && g_object_get_data (G_OBJECT (page->homographs_status), "exists") == NULL
+      && !page->homographs_cancelled && err == NULL)
+    err = _("The model could not be installed.");
+  if (page->homographs_cancelled || (!ok && err != NULL))
+    {
+      gchar *copy = page->homographs_cancelled ? NULL : g_strdup (err);
+
+      g_object_set_data (G_OBJECT (page->homographs_status), "err", NULL);
+      homographs_failed (page, copy);
+      g_free (copy);
+      return;
+    }
+  if (homograph_model_installed (page->homographs_pending))
+    {
+      gchar *module = g_strdup (page->homographs_module);
+      gchar *id = g_strdup (page->homographs_pending);
+
+      homographs_progress_hide (page);
+      speech_page_set_module_option (page, module, HOMOGRAPHS_KEY, id);
+      speech_page_sync_homographs (page);
+      g_free (module);
+      g_free (id);
+    }
+  else
+    homographs_failed (page, _("The model could not be installed."));
+}
+
+static void
+homographs_read_line (GObject *source, GAsyncResult *res, gpointer data)
+{
+  SpeechPage *page = data;
+  GDataInputStream *in = G_DATA_INPUT_STREAM (source);
+  GError *error = NULL;
+  gchar *line = g_data_input_stream_read_line_finish (in, res, NULL, &error);
+
+  if (error != NULL)
+    {
+      gboolean gone = g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+
+      g_error_free (error);
+      g_object_unref (in);
+      (void) gone;
+      return;
+    }
+  if (line == NULL)
+    {
+      g_object_unref (in);
+      return;
+    }
+  homographs_handle_line (page, line);
+  g_free (line);
+  g_data_input_stream_read_line_async (in, G_PRIORITY_DEFAULT,
+                                       page->homographs_cancellable,
+                                       homographs_read_line, page);
+}
+
+static void
+homographs_start (SpeechPage *page, const gchar *module, const gchar *id)
+{
+  const gchar *helper = g_getenv ("SPEECH_RUACCENT_HELPER");
+  GSubprocess *proc;
+  GError      *error = NULL;
+  GInputStream *out;
+
+  if (helper == NULL || *helper == '\0')
+    helper = RUACCENT_HELPER;
+  if (page->homographs_proc != NULL)
+    return;
+  if (!g_file_test (helper, G_FILE_TEST_IS_REGULAR))
+    {
+      speech_page_sync_homographs (page);
+      speech_page_show_message (page, GTK_MESSAGE_ERROR,
+                                _("The model installer is missing. Install the "
+                                  "package linux-tts-ruaccent-installer."));
+      return;
+    }
+  proc = g_subprocess_new (G_SUBPROCESS_FLAGS_STDOUT_PIPE | G_SUBPROCESS_FLAGS_STDERR_SILENCE,
+                           &error, "python3", "-I", helper, "install", id, NULL);
+  if (proc == NULL)
+    {
+      speech_page_sync_homographs (page);
+      speech_page_show_message (page, GTK_MESSAGE_ERROR, error->message);
+      g_error_free (error);
+      return;
+    }
+  page->homographs_proc = proc;
+  page->homographs_cancelled = FALSE;
+  page->homographs_pending = g_strdup (id);
+  page->homographs_module = g_strdup (module);
+  page->homographs_cancellable = g_cancellable_new ();
+  g_object_set_data (G_OBJECT (page->homographs_status), "err", NULL);
+  g_object_set_data (G_OBJECT (page->homographs_status), "exists", NULL);
+  gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (page->homographs_bar), 0.0);
+  gtk_label_set_text (GTK_LABEL (page->homographs_status), _("Starting…"));
+  gtk_widget_set_sensitive (page->homographs_cancel, TRUE);
+  gtk_widget_set_sensitive (page->homographs_combo, FALSE);
+  gtk_widget_show_all (page->homographs_box);
+  out = g_data_input_stream_new (g_subprocess_get_stdout_pipe (proc));
+  g_data_input_stream_read_line_async (G_DATA_INPUT_STREAM (out), G_PRIORITY_DEFAULT,
+                                       page->homographs_cancellable,
+                                       homographs_read_line, page);
+  g_subprocess_wait_async (proc, page->homographs_cancellable, homographs_finished, page);
+}
+
 void
 speech_page_homographs_changed (GtkComboBox *combo,
                                 SpeechPage  *page)
@@ -718,6 +961,13 @@ speech_page_homographs_changed (GtkComboBox *combo,
   for (i = 0; i < G_N_ELEMENTS (homograph_modes); i++)
     if (strcmp (homograph_modes[i].id, id) == 0)
       gtk_widget_set_tooltip_text (GTK_WIDGET (combo), _(homograph_modes[i].tip));
+  if ((strcmp (id, "tiny") == 0 || strcmp (id, "turbo") == 0)
+      && !homograph_model_installed (id))
+    {
+      homographs_start (page, module, id);
+      g_free (module);
+      return;
+    }
   /* "none" is the default: no line */
   speech_page_set_module_option (page, module, HOMOGRAPHS_KEY,
                                  strcmp (id, "none") == 0 ? NULL : id);
